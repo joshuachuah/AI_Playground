@@ -1,5 +1,7 @@
 # AI Playground
 
+> Status: PR 1 adds the live MVP foundation in `README.md`, `docs/architecture.md`, and `src/` shared contracts. This original concept document remains useful background, but the implementation source of truth is now the typed contracts and architecture docs in the repo.
+
 ## Overview
 
 **AI Playground** is a real-time 3D visualization environment for AI agents. Instead of showing agent activity only as text logs or status indicators, the platform represents each bot as a character moving and acting inside a shared 3D space.
