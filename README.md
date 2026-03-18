@@ -12,6 +12,13 @@ PR 1 establishes the foundation for a **truthful live MVP** focused on **OpenCla
 - introduce the runtime-to-visual translation boundary
 - provide a minimal shell for future app/server work
 
+## PR 2 goals
+
+- add a concrete runtime ingestion layer for OpenClaw-oriented events
+- normalize raw-ish payloads into repository-owned runtime contracts
+- validate known event shapes with fixture-driven executable checks
+- improve translation coverage so normalized events produce more credible visual output
+
 ## Live MVP in one sentence
 
 Stream real OpenClaw runtime events into a browser-based 3D scene, translate them into stable visual actions, and enrich the UI with OpenAI metadata when that data exists.
@@ -29,6 +36,14 @@ Stream real OpenClaw runtime events into a browser-based 3D scene, translate the
 │  │  ├─ runtime-events.ts
 │  │  ├─ visual-events.ts
 │  │  └─ index.ts
+│  ├─ dev/
+│  │  └─ validate-normalization.ts
+│  ├─ ingestion/
+│  │  ├─ fixtures.ts
+│  │  ├─ index.ts
+│  │  ├─ openclaw-normalization.ts
+│  │  ├─ runtime-ingestion.ts
+│  │  └─ types.ts
 │  ├─ translators/
 │  │  ├─ runtime-to-visual.ts
 │  │  └─ index.ts
@@ -39,42 +54,41 @@ Stream real OpenClaw runtime events into a browser-based 3D scene, translate the
 └─ README.md
 ```
 
-## What PR 1 adds
+## What PR 2 adds
 
-### 1. Shared contracts
-`src/contracts/` defines the foundational TypeScript interfaces for:
-- raw runtime events emitted by OpenClaw-adjacent systems
-- visual events consumed by the future scene/UI
-- session, actor, tool, artifact, and metadata types
+### 1. Runtime ingestion + normalization
+`src/ingestion/` introduces:
+- `OpenClawRuntimeNormalizer` to map raw OpenClaw-ish payloads into stable `RuntimeEvent` objects
+- `RuntimeEventIngestion` as a tiny subscribe/ingest seam for future streaming adapters
+- fixture payloads that reflect plausible upstream event shapes without pretending we already know every final runtime detail
 
-### 2. Translation boundary
-`src/translators/runtime-to-visual.ts` adds a small, explicit translator interface and placeholder implementation shape. This is the seam where noisy runtime events will be compressed into scene-readable actions.
+### 2. Better translation coverage
+`src/translators/runtime-to-visual.ts` now handles:
+- task started/progressed events
+- tool started/progressed/completed events
+- model response lifecycle events with OpenAI metadata surfaced into UI labels/badges
 
-### 3. Documentation
-`docs/architecture.md` defines:
-- MVP goal
-- architecture
-- raw runtime event schema
-- visual event schema
-- translation strategy
-- roadmap for follow-up PRs
+### 3. Executable validation
+`src/dev/validate-normalization.ts` provides a small fixture-driven validation path.
 
-### 4. Minimal app shell
-`src/app/index.ts` provides a tiny placeholder entry point describing the future live client responsibilities without adding framework boilerplate yet.
+Run it with:
 
-## Why this is intentionally lightweight
+```bash
+npm run validate:normalization
+```
 
-A full Next.js or 3D app bootstrap at this stage would add noise faster than value. The highest-leverage work for PR 1 is to lock in:
-- the product direction
-- the contract between runtime and visualization
-- the shape of future implementation work
+## Why this is still intentionally lightweight
 
-That gives future PRs a clear path to build a real streaming system instead of a disposable prototype.
+This still avoids a full frontend scaffold. The useful work here is making the runtime edge more real:
+- a place for raw upstream events to enter the system
+- normalization rules owned by this repo instead of implied by comments
+- a fast way to validate event-shape assumptions before UI work begins
+
+That is enough to make the next PRs build on truth instead of placeholder objects.
 
 ## Suggested next steps
 
-1. add a local event ingestion/server layer for OpenClaw runtime streams
-2. implement a deterministic translator with stateful bot/session tracking
-3. scaffold the web client and event timeline UI
-4. add scene zones and initial bot movement/state rendering
-5. integrate OpenAI metadata enrichment and inspection panels
+1. add a local transport adapter that consumes real OpenClaw gateway/runtime streams
+2. introduce session/actor state accumulation so the translator can emit less noisy scene updates
+3. scaffold the web client and connect it to normalized + visual event streams
+4. add timeline and inspector panels before richer 3D scene work

@@ -77,6 +77,15 @@ Supported initial event categories:
 
 Important rule: raw runtime events may be verbose, but they should not be “visualized” directly.
 
+## Runtime ingestion shape
+
+PR 2 introduces a small but practical runtime edge:
+- `RuntimeEventIngestion`: one place to receive raw payloads and fan out normalized events
+- `OpenClawRuntimeNormalizer`: adapter logic that accepts already-normalized events, runtime envelopes, or raw record-like payloads
+- fixture payloads that model plausible OpenClaw/runtime-tooling/OpenAI-adjacent shapes so assumptions can be tested explicitly
+
+This layer is intentionally repository-owned. Upstream event formats will probably evolve, and normalization is where that churn should be contained.
+
 ## Visual event schema
 
 Visual events are scene-oriented and intentionally more compact than runtime events.
@@ -136,9 +145,10 @@ The translator is the core product differentiator.
 
 | Runtime event(s) | Visual result |
 | --- | --- |
-| `task.started` by planner actor | actor focus state set to planning zone + planning activity |
+| `task.started` / `task.progressed` by planner actor | actor planning state with optional progress badge |
 | `tool.started` for `web_search` | actor moved or pinned to research zone + searching state |
-| repeated token/model deltas | no scene movement; optional inspector/timeline metadata only |
+| `tool.completed` for `write` | success state with file-oriented detail |
+| repeated token/model deltas | no scene movement; inspector/timeline metadata update |
 | `artifact.created` | artifact pulse/marker in UI + artifact created event |
 | `task.completed` | success state + session summary update |
 | `task.failed` | error state + error summary |
@@ -153,7 +163,7 @@ The translator is the core product differentiator.
 ### PR 2 - Runtime ingestion
 - implement a local event source adapter for OpenClaw
 - normalize runtime events into repo contracts
-- add fixture-based tests for known event shapes
+- add fixture-based validation for known event shapes
 
 ### PR 3 - Stateful translation
 - add actor/session state machines
@@ -180,10 +190,4 @@ The translator is the core product differentiator.
 - raw event volume may be high enough to require buffering/coalescing
 - visual clarity can degrade quickly if translation rules are too literal
 - provider-specific metadata is useful but should not contaminate core contracts
-
-## Non-goals for PR 1
-
-- no fake click-through demo
-- no production scene rendering yet
-- no full framework bootstrap unless needed by later work
-- no persistence/replay implementation yet
+- current normalization is heuristic and intentionally narrow until real runtime captures are available

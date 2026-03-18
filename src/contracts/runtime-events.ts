@@ -160,3 +160,10 @@ export interface RuntimeEvent<TKind extends RuntimeEventKind = RuntimeEventKind>
   kind: TKind;
   payload: RuntimeEventPayloadByKind[TKind];
 }
+
+export interface RuntimeEnvelope<TEvent = unknown> {
+  source: RuntimeEventSource;
+  receivedAt: string;
+  event: TEvent;
+  metadata?: Record<string, unknown>;
+}
