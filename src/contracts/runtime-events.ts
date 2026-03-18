@@ -72,7 +72,6 @@ export interface RuntimeEventBase {
   timestamp: string;
   sessionId: string;
   source: RuntimeEventSource;
-  kind: RuntimeEventKind;
   actor?: RuntimeActorRef;
   openai?: OpenAIMetadata;
 }
@@ -81,6 +80,11 @@ export interface SessionLifecyclePayload {
   status: 'started' | 'running' | 'completed' | 'failed';
   title?: string;
   goal?: string;
+}
+
+export interface ActorLifecyclePayload {
+  status: 'spawned' | 'updated' | 'removed';
+  summary?: string;
 }
 
 export interface TaskLifecyclePayload {
@@ -123,17 +127,36 @@ export interface ErrorPayload {
   retryable?: boolean;
 }
 
-export type RuntimeEventPayload =
-  | SessionLifecyclePayload
-  | TaskLifecyclePayload
-  | ToolLifecyclePayload
-  | MessagePayload
-  | ArtifactPayload
-  | ModelResponsePayload
-  | ErrorPayload
-  | Record<string, unknown>;
+export interface RuntimeEventPayloadByKind {
+  'session.started': SessionLifecyclePayload;
+  'session.updated': SessionLifecyclePayload;
+  'session.completed': SessionLifecyclePayload;
+  'session.failed': SessionLifecyclePayload;
+  'actor.spawned': ActorLifecyclePayload;
+  'actor.updated': ActorLifecyclePayload;
+  'actor.removed': ActorLifecyclePayload;
+  'task.started': TaskLifecyclePayload;
+  'task.progressed': TaskLifecyclePayload;
+  'task.completed': TaskLifecyclePayload;
+  'task.failed': TaskLifecyclePayload;
+  'tool.started': ToolLifecyclePayload;
+  'tool.progressed': ToolLifecyclePayload;
+  'tool.completed': ToolLifecyclePayload;
+  'tool.failed': ToolLifecyclePayload;
+  'message.sent': MessagePayload;
+  'message.received': MessagePayload;
+  'artifact.created': ArtifactPayload;
+  'artifact.updated': ArtifactPayload;
+  'model.response.created': ModelResponsePayload;
+  'model.response.delta': ModelResponsePayload;
+  'model.response.completed': ModelResponsePayload;
+  warning: ErrorPayload;
+  error: ErrorPayload;
+}
 
-export interface RuntimeEvent<TPayload extends RuntimeEventPayload = RuntimeEventPayload>
-  extends RuntimeEventBase {
-  payload: TPayload;
+export type RuntimeEventPayload = RuntimeEventPayloadByKind[RuntimeEventKind];
+
+export interface RuntimeEvent<TKind extends RuntimeEventKind = RuntimeEventKind> extends RuntimeEventBase {
+  kind: TKind;
+  payload: RuntimeEventPayloadByKind[TKind];
 }

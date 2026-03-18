@@ -18,6 +18,15 @@ const DEFAULT_ZONE_BY_TOOL_NAME: Record<string, SceneZone> = {
   exec: 'coding',
 };
 
+const FILE_MODIFYING_TOOLS = new Set(['write', 'edit']);
+
+function mapToolActivity(zone: SceneZone, toolName?: string) {
+  if (zone === 'coding') return 'coding' as const;
+  if (zone === 'research') return 'researching' as const;
+  if (zone === 'files' && toolName && FILE_MODIFYING_TOOLS.has(toolName)) return 'coding' as const;
+  return 'reading' as const;
+}
+
 export class OpenClawRuntimeTranslator implements RuntimeToVisualTranslator {
   private readonly zoneByToolName: Record<string, SceneZone>;
 
@@ -61,7 +70,7 @@ export class OpenClawRuntimeTranslator implements RuntimeToVisualTranslator {
             summary: `${event.actor?.name ?? 'Actor'} started ${toolName ?? 'a tool'}`,
             scene: {
               target: { zone },
-              activity: zone === 'coding' ? 'coding' : zone === 'research' ? 'researching' : 'reading',
+              activity: mapToolActivity(zone, toolName),
             },
             ui: {
               label: toolName,
