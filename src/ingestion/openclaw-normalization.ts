@@ -12,6 +12,9 @@ import type { RuntimeNormalizer, RuntimeNormalizerInput } from './types.js';
 const FALLBACK_SOURCE: RuntimeEventSource = 'openclaw.runtime';
 
 export class OpenClawRuntimeNormalizer implements RuntimeNormalizer {
+  private fallbackEventCounter = 0;
+  private readonly fallbackEntropy = Math.random().toString(36).slice(2, 10);
+
   normalize(input: RuntimeNormalizerInput): RuntimeEvent {
     if (isRuntimeEvent(input)) {
       return input;
@@ -104,11 +107,16 @@ export class OpenClawRuntimeNormalizer implements RuntimeNormalizer {
       case 'artifact.updated':
         return 'artifact.updated';
       case 'model.response.created':
+      case 'response.created':
         return 'model.response.created';
       case 'model.response.delta':
+      case 'response.delta':
         return 'model.response.delta';
       case 'model.response.completed':
+      case 'response.completed':
         return 'model.response.completed';
+      case 'response.failed':
+        return 'error';
       case 'warning':
         return 'warning';
       case 'error':
@@ -138,6 +146,7 @@ export class OpenClawRuntimeNormalizer implements RuntimeNormalizer {
     if (readObject(raw.response) || raw.response_id || raw.responseId) {
       if (phase === 'delta' || phase === 'streaming') return 'model.response.delta';
       if (status === 'completed') return 'model.response.completed';
+      if (status === 'failed') return 'error';
       return 'model.response.created';
     }
 
@@ -148,12 +157,11 @@ export class OpenClawRuntimeNormalizer implements RuntimeNormalizer {
   }
 
   private readEventId(raw: Record<string, unknown>, sessionId: string, kind: RuntimeEventKind, timestamp: string): string {
-    return (
-      readString(raw.id) ??
-      readString(raw.eventId) ??
-      readString(raw.event_id) ??
-      `${sessionId}:${kind}:${timestamp}`
-    );
+    const explicitId = readString(raw.id) ?? readString(raw.eventId) ?? readString(raw.event_id);
+    if (explicitId) return explicitId;
+
+    this.fallbackEventCounter += 1;
+    return `${sessionId}:${kind}:${timestamp}:${this.fallbackEntropy}:${this.fallbackEventCounter.toString(36)}`;
   }
 
   private readSessionId(raw: Record<string, unknown>): string {

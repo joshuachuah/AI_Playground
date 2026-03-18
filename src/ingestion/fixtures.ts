@@ -110,4 +110,42 @@ export const openClawFixtureEvents: RuntimeEnvelope<Record<string, unknown>>[] =
       status: 'completed',
     },
   },
+  {
+    source: 'openai.responses',
+    receivedAt: '2026-03-18T14:00:14.000Z',
+    event: {
+      type: 'response.completed',
+      session_id: 'session-live-001',
+      timestamp: '2026-03-18T14:00:14.000Z',
+      actor: {
+        id: 'agent-main',
+        name: 'Yuqi',
+      },
+      response: {
+        id: 'resp_123',
+        model: 'gpt-5.4',
+      },
+      summary: 'Runtime normalization is complete',
+    },
+  },
+  {
+    source: 'openclaw.tooling',
+    receivedAt: '2026-03-18T14:00:16.000Z',
+    event: {
+      type: 'tool.failed',
+      session_id: 'session-live-001',
+      timestamp: '2026-03-18T14:00:16.000Z',
+      actor: {
+        id: 'agent-main',
+        name: 'Yuqi',
+      },
+      tool: {
+        name: 'web_fetch',
+        invocationId: 'call-003',
+      },
+      inputSummary: 'Fetch PR review details',
+      outputSummary: 'Rate limited by upstream API',
+      status: 'failed',
+    },
+  },
 ];
