@@ -2,19 +2,61 @@
 
 AI_Playground is a real-time 3D observability interface for AI agents.
 
-PR 1 establishes the foundation for a **truthful live MVP** focused on **OpenClaw runtime visualization first**, with optional OpenAI metadata enrichment where available. This repository intentionally does **not** start with a fake clickable demo. Instead, it defines the event contracts, translation model, and implementation plan needed to build a live system.
+Instead of forcing people to understand agent execution through logs, chat transcripts, or tool traces alone, AI_Playground turns live runtime activity into a visual world. Bots appear as entities in a shared scene, move between work zones, and expose what they are doing in a way that is easier to read, debug, and demo.
 
-## PR 1 goals
+The current direction is **live OpenClaw-first visualization**, with **OpenAI metadata enrichment** where available.
 
-- define the live MVP target clearly
-- establish a lightweight TypeScript project structure
-- codify raw runtime and visual event schemas
-- introduce the runtime-to-visual translation boundary
-- provide a minimal shell for future app/server work
+## What the project does
 
-## Live MVP in one sentence
+AI_Playground is being built to:
 
-Stream real OpenClaw runtime events into a browser-based 3D scene, translate them into stable visual actions, and enrich the UI with OpenAI metadata when that data exists.
+- visualize real AI/agent runtime activity in real time
+- map runtime events into readable visual states and movements
+- make agent workflows easier to understand and debug
+- provide a more intuitive interface for demos, monitoring, and experimentation
+- show what is happening now without pretending the system is doing something it is not
+
+In practical terms, the project is aiming for a flow like this:
+
+1. OpenClaw runs a real task
+2. runtime events are captured and normalized
+3. those events are translated into scene-friendly visual events
+4. the browser renders entities, status, and timeline updates live
+5. the UI shows extra metadata such as model/provider/tool context when available
+
+## Product philosophy
+
+AI_Playground is **not** intended to be a fake animation demo or a game.
+
+The goal is:
+- **truthful abstraction**, not spectacle
+- **observability**, not roleplay
+- **clarity**, not noisy literal playback
+
+That means the system should summarize runtime behavior honestly:
+- if an agent is waiting, it should look like waiting
+- if a tool failed, that failure should be visible
+- if a model response completed, the UI should reflect that terminal state correctly
+
+## Current architecture direction
+
+The repo is structured around a few core layers:
+
+### 1. Runtime ingestion
+Accept raw or semi-structured runtime signals from OpenClaw-oriented sources.
+
+### 2. Normalization
+Convert upstream payloads into a repo-owned runtime event contract.
+
+### 3. Translation
+Map runtime events into visual events that a scene/UI can render clearly.
+
+### 4. Visualization client
+A future browser client will render:
+- scene zones
+- runtime entities/bots
+- live activity states
+- timeline/details panels
 
 ## Current repository structure
 
@@ -27,11 +69,20 @@ Stream real OpenClaw runtime events into a browser-based 3D scene, translate the
 │  │  └─ index.ts
 │  ├─ contracts/
 │  │  ├─ runtime-events.ts
+│  │  ├─ runtime-events.typecheck.ts
 │  │  ├─ visual-events.ts
+│  │  └─ index.ts
+│  ├─ ingestion/
+│  │  ├─ fixtures.ts
+│  │  ├─ openclaw-normalization.ts
+│  │  ├─ runtime-ingestion.ts
+│  │  ├─ types.ts
 │  │  └─ index.ts
 │  ├─ translators/
 │  │  ├─ runtime-to-visual.ts
 │  │  └─ index.ts
+│  ├─ dev/
+│  │  └─ validate-normalization.ts
 │  └─ index.ts
 ├─ Project.md
 ├─ package.json
@@ -39,42 +90,75 @@ Stream real OpenClaw runtime events into a browser-based 3D scene, translate the
 └─ README.md
 ```
 
-## What PR 1 adds
+## What exists right now
 
-### 1. Shared contracts
-`src/contracts/` defines the foundational TypeScript interfaces for:
-- raw runtime events emitted by OpenClaw-adjacent systems
-- visual events consumed by the future scene/UI
-- session, actor, tool, artifact, and metadata types
+The project currently includes the engineering foundation for the live MVP:
 
-### 2. Translation boundary
-`src/translators/runtime-to-visual.ts` adds a small, explicit translator interface and placeholder implementation shape. This is the seam where noisy runtime events will be compressed into scene-readable actions.
+- a repo-owned runtime event contract
+- a visual event contract
+- an OpenClaw-oriented normalization layer
+- a runtime-to-visual translator layer
+- fixture-driven validation for normalization and translation behavior
+- architecture documentation for the live MVP
 
-### 3. Documentation
-`docs/architecture.md` defines:
-- MVP goal
-- architecture
-- raw runtime event schema
-- visual event schema
-- translation strategy
-- roadmap for follow-up PRs
+This is intentionally foundation-first. The goal was to lock in the event model and translation seam before investing in UI and rendering work.
 
-### 4. Minimal app shell
-`src/app/index.ts` provides a tiny placeholder entry point describing the future live client responsibilities without adding framework boilerplate yet.
+## What does not exist yet
 
-## Why this is intentionally lightweight
+Not built yet:
 
-A full Next.js or 3D app bootstrap at this stage would add noise faster than value. The highest-leverage work for PR 1 is to lock in:
-- the product direction
-- the contract between runtime and visualization
-- the shape of future implementation work
+- the full frontend app
+- the 3D scene
+- live browser transport/wiring
+- real-time OpenClaw stream integration end-to-end
+- replay/history UI
+- multi-agent scene orchestration
 
-That gives future PRs a clear path to build a real streaming system instead of a disposable prototype.
+Those come after the event pipeline is solid.
 
-## Suggested next steps
+## Why the repo is still lightweight
 
-1. add a local event ingestion/server layer for OpenClaw runtime streams
-2. implement a deterministic translator with stateful bot/session tracking
-3. scaffold the web client and event timeline UI
-4. add scene zones and initial bot movement/state rendering
-5. integrate OpenAI metadata enrichment and inspection panels
+The highest-leverage work early on is not graphics boilerplate.
+It is:
+
+- defining the event contracts
+- keeping runtime normalization honest
+- making translation behavior safe and understandable
+- preventing the UI from becoming misleading later
+
+That is why the repository currently focuses more on contracts, ingestion, and translation than on framework-heavy frontend setup.
+
+## Near-term roadmap
+
+### Done
+- define runtime event contract
+- define visual event contract
+- establish translation layer
+- add normalization layer for OpenClaw-style events
+- add validation for key normalization/translation paths
+
+### Next
+- build live transport from runtime to browser
+- scaffold the frontend shell
+- render timeline/details UI
+- introduce scene zones and entity state rendering
+- connect the live event pipeline to the UI
+
+## Tech direction
+
+Current foundation:
+- TypeScript
+- lightweight contract-first architecture
+
+Planned implementation direction:
+- Next.js
+- React
+- React Three Fiber
+- Zustand
+- WebSocket/SSE-style live event delivery
+
+## More detail
+
+For deeper implementation notes, see:
+- `Project.md`
+- `docs/architecture.md`
