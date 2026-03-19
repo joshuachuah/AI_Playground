@@ -80,8 +80,18 @@ export class RuntimeVisualStore {
 
   private update(state: RuntimeVisualState): void {
     this.state = state;
+    const errors: unknown[] = [];
+
     for (const subscriber of this.subscribers) {
-      subscriber(createSnapshot(this.state));
+      try {
+        subscriber(createSnapshot(this.state));
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new AggregateError(errors, 'One or more runtime visual store subscribers failed');
     }
   }
 }

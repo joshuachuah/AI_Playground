@@ -29,8 +29,6 @@ export class DefaultLiveClientShell implements LiveClientShell {
   }
 
   async connect(): Promise<void> {
-    this.dependencies.store.setConnectionStatus('connecting');
-
     try {
       await this.dependencies.transport.connect(this.listener);
     } catch (error) {
