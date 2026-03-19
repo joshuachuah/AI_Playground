@@ -21,12 +21,17 @@ export interface SseRuntimeTransportConfig {
 
 export class SseRuntimeTransport implements RuntimeEventTransport {
   private source: EventSourceLike | null = null;
+  private listener: RuntimeEventStreamListener | null = null;
 
   constructor(private readonly config: SseRuntimeTransportConfig) {}
 
   async connect(listener: RuntimeEventStreamListener): Promise<void> {
-    if (this.source) return;
+    if (this.source) {
+      if (this.listener === listener) return;
+      await this.disconnect();
+    }
 
+    this.listener = listener;
     listener.onStatusChange?.('connecting');
 
     const source = this.config.createEventSource(this.config.url);
@@ -48,12 +53,29 @@ export class SseRuntimeTransport implements RuntimeEventTransport {
     source.onerror = (error) => {
       listener.onStatusChange?.('error');
       listener.onError?.(error);
+      this.closeSource();
+      listener.onStatusChange?.('disconnected');
     };
   }
 
   async disconnect(): Promise<void> {
+    if (!this.source) {
+      this.listener?.onStatusChange?.('disconnected');
+      this.listener = null;
+      return;
+    }
+
+    this.closeSource();
+    this.listener?.onStatusChange?.('disconnected');
+    this.listener = null;
+  }
+
+  private closeSource(): void {
     if (!this.source) return;
     this.source.close();
+    this.source.onopen = null;
+    this.source.onmessage = null;
+    this.source.onerror = null;
     this.source = null;
   }
 }

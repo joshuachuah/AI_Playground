@@ -18,5 +18,28 @@ export interface RuntimeEventEnvelope {
 }
 
 export function parseRuntimeEventEnvelope(payload: string): RuntimeEventEnvelope {
-  return JSON.parse(payload) as RuntimeEventEnvelope;
+  const parsed: unknown = JSON.parse(payload);
+
+  if (!isRuntimeEventEnvelope(parsed)) {
+    throw new Error('Invalid runtime event envelope payload');
+  }
+
+  return parsed;
+}
+
+function isRuntimeEventEnvelope(value: unknown): value is RuntimeEventEnvelope {
+  if (!value || typeof value !== 'object') return false;
+
+  const candidate = value as { event?: unknown };
+  if (!candidate.event || typeof candidate.event !== 'object') return false;
+
+  const event = candidate.event as { kind?: unknown; sessionId?: unknown; payload?: unknown; id?: unknown; timestamp?: unknown };
+  return (
+    typeof event.id === 'string' &&
+    typeof event.timestamp === 'string' &&
+    typeof event.sessionId === 'string' &&
+    typeof event.kind === 'string' &&
+    typeof event.payload === 'object' &&
+    event.payload !== null
+  );
 }

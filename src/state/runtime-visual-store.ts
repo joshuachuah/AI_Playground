@@ -15,7 +15,7 @@ export interface RuntimeVisualStoreOptions {
   maxVisualEvents?: number;
 }
 
-export type RuntimeVisualSubscriber = (state: RuntimeVisualState) => void;
+export type RuntimeVisualSubscriber = (state: Readonly<RuntimeVisualState>) => void;
 
 const DEFAULT_MAX_RUNTIME_EVENTS = 200;
 const DEFAULT_MAX_VISUAL_EVENTS = 200;
@@ -37,20 +37,24 @@ export class RuntimeVisualStore {
     this.maxVisualEvents = options.maxVisualEvents ?? DEFAULT_MAX_VISUAL_EVENTS;
   }
 
-  getSnapshot(): RuntimeVisualState {
-    return this.state;
+  getSnapshot(): Readonly<RuntimeVisualState> {
+    return createSnapshot(this.state);
   }
 
   subscribe(subscriber: RuntimeVisualSubscriber): () => void {
     this.subscribers.add(subscriber);
-    subscriber(this.state);
+    subscriber(createSnapshot(this.state));
     return () => {
       this.subscribers.delete(subscriber);
     };
   }
 
   setConnectionStatus(status: RuntimeVisualState['connectionStatus']): void {
-    this.update({ ...this.state, connectionStatus: status });
+    this.update({
+      ...this.state,
+      connectionStatus: status,
+      lastError: status === 'connected' || status === 'disconnected' || status === 'idle' ? undefined : this.state.lastError,
+    });
   }
 
   recordError(error: unknown): void {
@@ -76,10 +80,19 @@ export class RuntimeVisualStore {
 
   private update(state: RuntimeVisualState): void {
     this.state = state;
+    const snapshot = createSnapshot(this.state);
     for (const subscriber of this.subscribers) {
-      subscriber(this.state);
+      subscriber(snapshot);
     }
   }
+}
+
+function createSnapshot(state: RuntimeVisualState): Readonly<RuntimeVisualState> {
+  return {
+    ...state,
+    runtimeEvents: [...state.runtimeEvents],
+    visualEvents: [...state.visualEvents],
+  };
 }
 
 function trimTail<T>(values: T[], max: number): T[] {
