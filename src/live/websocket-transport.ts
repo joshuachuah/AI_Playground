@@ -48,7 +48,6 @@ export class WebSocketRuntimeTransport implements RuntimeEventTransport {
     this.listener = listener;
     this.isDisconnecting = false;
     this.hasErrored = false;
-    listener.onStatusChange?.('connecting');
 
     const socket = this.config.createWebSocket(this.config.url);
     this.socket = socket;
@@ -79,41 +78,44 @@ export class WebSocketRuntimeTransport implements RuntimeEventTransport {
     socket.onclose = (event) => {
       if (this.socket !== socket) return;
 
+      const activeListener = this.listener === listener ? listener : null;
+      const wasDisconnecting = this.isDisconnecting;
+      const hadErrored = this.hasErrored;
+      const errorMessage = `WebSocket closed unexpectedly${event.reason ? `: ${event.reason}` : ''}`;
+
       this.clearSocket(socket);
+      this.isDisconnecting = false;
+      this.hasErrored = false;
 
-      if (this.isDisconnecting) {
-        this.isDisconnecting = false;
-        if (this.listener === listener) {
-          listener.onStatusChange?.('disconnected');
-          this.listener = null;
-        }
-        this.hasErrored = false;
-        this.finishPendingDisconnect();
-        return;
-      }
-
-      if (this.listener === listener) {
-        if (this.hasErrored) {
-          if (event.wasClean === false) {
-            listener.onError?.(
-              new Error(`WebSocket closed unexpectedly${event.reason ? `: ${event.reason}` : ''}`),
-            );
-          }
-        } else if (event.wasClean === false) {
-          listener.onStatusChange?.('error');
-          listener.onError?.(
-            new Error(`WebSocket closed unexpectedly${event.reason ? `: ${event.reason}` : ''}`),
-          );
-        } else {
-          listener.onStatusChange?.('disconnected');
-        }
-
+      if (activeListener) {
         this.listener = null;
       }
 
-      this.hasErrored = false;
       this.finishPendingDisconnect();
+
+      if (!activeListener) {
+        return;
+      }
+
+      if (wasDisconnecting) {
+        activeListener.onStatusChange?.('disconnected');
+        return;
+      }
+
+      if (event.wasClean === false) {
+        if (!hadErrored) {
+          activeListener.onStatusChange?.('error');
+        }
+        activeListener.onError?.(new Error(errorMessage));
+        return;
+      }
+
+      if (!hadErrored) {
+        activeListener.onStatusChange?.('disconnected');
+      }
     };
+
+    listener.onStatusChange?.('connecting');
   }
 
   async disconnect(): Promise<void> {
