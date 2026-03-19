@@ -174,6 +174,8 @@ The translator is the core product differentiator.
 - surface model, token, request, and response metadata where present
 - expose metadata in inspector/timeline without coupling scene behavior to provider-specific fields
 
+The live transport boundary now supports both SSE and WebSocket adapters. The app shell and state store remain transport-agnostic.
+
 ## Risks and caveats
 
 - upstream OpenClaw runtime event formats may evolve and require adapter work
