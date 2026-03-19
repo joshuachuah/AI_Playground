@@ -66,23 +66,25 @@ A future browser client will render:
 │  └─ architecture.md
 ├─ src/
 │  ├─ app/
-│  │  └─ index.ts
+│  │  ├─ index.ts
+│  │  └─ live-client-shell.ts
 │  ├─ contracts/
 │  │  ├─ runtime-events.ts
 │  │  ├─ runtime-events.typecheck.ts
 │  │  ├─ visual-events.ts
 │  │  └─ index.ts
-│  ├─ ingestion/
-│  │  ├─ fixtures.ts
-│  │  ├─ openclaw-normalization.ts
-│  │  ├─ runtime-ingestion.ts
-│  │  ├─ types.ts
+│  ├─ live/
+│  │  ├─ transport.ts
+│  │  ├─ sse-transport.ts
+│  │  └─ index.ts
+│  ├─ state/
+│  │  ├─ runtime-visual-store.ts
 │  │  └─ index.ts
 │  ├─ translators/
 │  │  ├─ runtime-to-visual.ts
 │  │  └─ index.ts
 │  ├─ dev/
-│  │  └─ validate-normalization.ts
+│  │  └─ live-shell.ts
 │  └─ index.ts
 ├─ Project.md
 ├─ package.json
@@ -96,9 +98,11 @@ The project currently includes the engineering foundation for the live MVP:
 
 - a repo-owned runtime event contract
 - a visual event contract
-- an OpenClaw-oriented normalization layer
 - a runtime-to-visual translator layer
-- fixture-driven validation for normalization and translation behavior
+- a protocol-agnostic live transport interface with an SSE adapter
+- a lightweight state/projection store for connection status + runtime/visual event buffers
+- a minimal app/client shell wiring transport → translator → store
+- a developer-facing live shell preview entrypoint
 - architecture documentation for the live MVP
 
 This is intentionally foundation-first. The goal was to lock in the event model and translation seam before investing in UI and rendering work.
@@ -156,6 +160,22 @@ Planned implementation direction:
 - React Three Fiber
 - Zustand
 - WebSocket/SSE-style live event delivery
+
+## Minimal developer wiring example
+
+```ts
+import { createLiveClientShell, createInMemoryRuntimeTransport } from 'ai_playground';
+
+const { shell, store } = createLiveClientShell(createInMemoryRuntimeTransport([]));
+
+store.subscribe((state) => {
+  console.log(state.connectionStatus, state.visualEvents.length);
+});
+
+await shell.connect();
+```
+
+For a local developer-oriented preview, see `src/dev/live-shell.ts`.
 
 ## More detail
 
