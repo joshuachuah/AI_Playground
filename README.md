@@ -99,7 +99,7 @@ The project currently includes the engineering foundation for the live MVP:
 - a repo-owned runtime event contract
 - a visual event contract
 - a runtime-to-visual translator layer
-- a protocol-agnostic live transport interface with an SSE adapter
+- a protocol-agnostic live transport interface with SSE and WebSocket adapters
 - a lightweight state/projection store for connection status + runtime/visual event buffers
 - a minimal app/client shell wiring transport → translator → store
 - a developer-facing live shell preview entrypoint
@@ -172,6 +172,20 @@ store.subscribe((state) => {
   console.log(state.connectionStatus, state.visualEvents.length);
 });
 
+await shell.connect();
+```
+
+WebSocket transport is also available for live runtime delivery:
+
+```ts
+import { createLiveClientShell, WebSocketRuntimeTransport } from 'ai_playground';
+
+const transport = new WebSocketRuntimeTransport({
+  url: 'ws://localhost:3000/runtime',
+  createWebSocket: (url) => new WebSocket(url),
+});
+
+const { shell } = createLiveClientShell(transport);
 await shell.connect();
 ```
 
