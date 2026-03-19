@@ -5,9 +5,12 @@
   "description": "Foundation for a live OpenClaw-first 3D observability MVP",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "build": "tsc --noEmit false --outDir .build",
+    "typecheck": "tsc --noEmit",
+    "dev:inspect": "npm run build && node .build/dev/live-inspector.js"
   },
   "devDependencies": {
+    "@types/node": "^24.5.2",
     "typescript": "^5.9.2"
   }
 }
