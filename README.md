@@ -99,10 +99,11 @@ The project currently includes the engineering foundation for the live MVP:
 - a repo-owned runtime event contract
 - a visual event contract
 - a runtime-to-visual translator layer
-- a protocol-agnostic live transport interface with SSE and WebSocket adapters
+- a protocol-agnostic live transport interface with SSE, WebSocket, and local async-stream adapters
 - a lightweight state/projection store for connection status + runtime/visual event buffers
 - a minimal app/client shell wiring transport → translator → store
-- a developer-facing live shell preview entrypoint
+- an app boot wrapper for explicit start/stop lifecycle wiring
+- developer-facing local preview flows, including a runnable live inspector
 - architecture documentation for the live MVP
 
 This is intentionally foundation-first. The goal was to lock in the event model and translation seam before investing in UI and rendering work.
@@ -189,7 +190,21 @@ const { shell } = createLiveClientShell(transport);
 await shell.connect();
 ```
 
-For a local developer-oriented preview, see `src/dev/live-shell.ts`.
+For local developer-oriented previews, see `src/dev/live-shell.ts` and `src/dev/live-inspector.ts`.
+
+### Local live inspector
+
+Run the current end-to-end local developer flow:
+
+```bash
+npm run dev:inspect
+```
+
+That command builds the TypeScript sources into `.build/`, boots the app through the new `bootLiveClientApp(...)` path, streams a local interval-based runtime event source through the transport boundary, and prints:
+- connection status updates
+- runtime/visual event counters
+- a timeline of newly received runtime events
+- a latest-event inspector snapshot
 
 ## More detail
 

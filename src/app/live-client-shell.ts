@@ -40,7 +40,6 @@ export class DefaultLiveClientShell implements LiveClientShell {
   async disconnect(): Promise<void> {
     try {
       await this.dependencies.transport.disconnect();
-      this.dependencies.store.setConnectionStatus('disconnected');
     } catch (error) {
       this.dependencies.store.recordError(error);
       throw error;

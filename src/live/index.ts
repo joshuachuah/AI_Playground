@@ -1,3 +1,4 @@
 export * from './transport.js';
 export * from './sse-transport.js';
 export * from './websocket-transport.js';
+export * from './local-runtime-event-source.js';

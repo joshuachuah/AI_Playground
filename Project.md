@@ -1,5 +1,31 @@
 # AI Playground
 
+## Implementation Status Snapshot (2026-03-19)
+
+- Current practical direction: build a live runtime observability app for OpenClaw-style agent activity.
+- Current implemented foundation in repo:
+  - normalized runtime event contracts
+  - runtime-to-visual translation foundation
+  - runtime visual store
+  - live client shell
+  - SSE transport
+  - WebSocket transport work via PR #5
+- Current team roles used for project execution:
+  - Yuqi = project lead / coordinator
+  - Willy = implementation bot
+  - Nick = review bot
+- Important current product distinction:
+  - **Transport v1 is not product v1.**
+  - Actual product v1 means the first end-to-end usable live client experience.
+- Main remaining work for actual v1:
+  1. real runtime event source / live endpoint
+  2. actual app boot path wiring transport + shell + store
+  3. minimal UI (connection status, event timeline/list, latest event inspector)
+  4. end-to-end local run flow
+  5. basic run documentation
+
+---
+
 > Status: PR 1 adds the live MVP foundation in `README.md`, `docs/architecture.md`, and `src/` shared contracts. This original concept document remains useful background, but the implementation source of truth is now the typed contracts and architecture docs in the repo.
 
 ## Overview
