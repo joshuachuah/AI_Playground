@@ -34,6 +34,8 @@ export class WebSocketRuntimeTransport implements RuntimeEventTransport {
   private listener: RuntimeEventStreamListener | null = null;
   private isDisconnecting = false;
   private hasErrored = false;
+  private pendingDisconnect: Promise<void> | null = null;
+  private resolvePendingDisconnect: (() => void) | null = null;
 
   constructor(private readonly config: WebSocketRuntimeTransportConfig) {}
 
@@ -86,22 +88,31 @@ export class WebSocketRuntimeTransport implements RuntimeEventTransport {
           this.listener = null;
         }
         this.hasErrored = false;
+        this.finishPendingDisconnect();
         return;
       }
 
       if (this.listener === listener) {
-        if (!this.hasErrored) {
-          listener.onStatusChange?.('disconnected');
+        if (this.hasErrored) {
+          if (event.wasClean === false) {
+            listener.onError?.(
+              new Error(`WebSocket closed unexpectedly${event.reason ? `: ${event.reason}` : ''}`),
+            );
+          }
         } else if (event.wasClean === false) {
+          listener.onStatusChange?.('error');
           listener.onError?.(
             new Error(`WebSocket closed unexpectedly${event.reason ? `: ${event.reason}` : ''}`),
           );
+        } else {
+          listener.onStatusChange?.('disconnected');
         }
 
         this.listener = null;
       }
 
       this.hasErrored = false;
+      this.finishPendingDisconnect();
     };
   }
 
@@ -110,11 +121,28 @@ export class WebSocketRuntimeTransport implements RuntimeEventTransport {
       this.listener = null;
       this.isDisconnecting = false;
       this.hasErrored = false;
+      this.finishPendingDisconnect();
       return;
     }
 
+    if (this.pendingDisconnect) {
+      return this.pendingDisconnect;
+    }
+
     this.isDisconnecting = true;
+    this.pendingDisconnect = new Promise<void>((resolve) => {
+      this.resolvePendingDisconnect = resolve;
+    });
+
     this.socket.close();
+    return this.pendingDisconnect;
+  }
+
+  private finishPendingDisconnect(): void {
+    const resolve = this.resolvePendingDisconnect;
+    this.resolvePendingDisconnect = null;
+    this.pendingDisconnect = null;
+    resolve?.();
   }
 
   private clearSocket(socket: WebSocketLike): void {
