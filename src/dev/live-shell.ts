@@ -67,7 +67,7 @@ const sampleRuntimeEvents: RuntimeEvent[] = [
 export async function runLiveShellPreview(): Promise<void> {
   const { shell, store } = createLiveClientShell(createInMemoryRuntimeTransport(sampleRuntimeEvents));
 
-  store.subscribe((state) => {
+  const unsubscribe = store.subscribe((state) => {
     // Keep this intentionally simple and framework-neutral.
     console.log('[live-shell-preview]', {
       connectionStatus: state.connectionStatus,
@@ -77,6 +77,10 @@ export async function runLiveShellPreview(): Promise<void> {
     });
   });
 
-  await shell.connect();
-  await shell.disconnect();
+  try {
+    await shell.connect();
+    await shell.disconnect();
+  } finally {
+    unsubscribe();
+  }
 }

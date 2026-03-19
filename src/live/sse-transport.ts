@@ -53,14 +53,11 @@ export class SseRuntimeTransport implements RuntimeEventTransport {
     source.onerror = (error) => {
       listener.onStatusChange?.('error');
       listener.onError?.(error);
-      this.closeSource();
-      listener.onStatusChange?.('disconnected');
     };
   }
 
   async disconnect(): Promise<void> {
     if (!this.source) {
-      this.listener?.onStatusChange?.('disconnected');
       this.listener = null;
       return;
     }
@@ -86,12 +83,14 @@ export function createInMemoryRuntimeTransport(events: RuntimeEvent[]): RuntimeE
 
 class InMemoryRuntimeTransport implements RuntimeEventTransport {
   private connected = false;
+  private listener: RuntimeEventStreamListener | null = null;
 
   constructor(private readonly events: RuntimeEvent[]) {}
 
   async connect(listener: RuntimeEventStreamListener): Promise<void> {
     if (this.connected) return;
     this.connected = true;
+    this.listener = listener;
 
     listener.onStatusChange?.('connecting');
     listener.onStatusChange?.('connected');
@@ -102,6 +101,13 @@ class InMemoryRuntimeTransport implements RuntimeEventTransport {
   }
 
   async disconnect(): Promise<void> {
+    if (!this.connected) {
+      this.listener = null;
+      return;
+    }
+
     this.connected = false;
+    this.listener?.onStatusChange?.('disconnected');
+    this.listener = null;
   }
 }

@@ -1,15 +1,20 @@
-import { DefaultLiveClientShell } from './live-client-shell.js';
+import { DefaultLiveClientShell, type LiveClientShell } from './live-client-shell.js';
 import type { RuntimeEventTransport } from '../live/transport.js';
 import { OpenClawRuntimeTranslator } from '../translators/runtime-to-visual.js';
 import { RuntimeVisualStore } from '../state/runtime-visual-store.js';
 
 export * from './live-client-shell.js';
 
+export interface LiveClientShellBundle {
+  shell: LiveClientShell;
+  store: RuntimeVisualStore;
+}
+
 /**
  * Minimal entrypoint for wiring transport + translation + state.
  * Browser UI can consume `store.subscribe(...)` without binding to a framework yet.
  */
-export function createLiveClientShell(transport: RuntimeEventTransport) {
+export function createLiveClientShell(transport: RuntimeEventTransport): LiveClientShellBundle {
   const translator = new OpenClawRuntimeTranslator();
   const store = new RuntimeVisualStore({ translator });
   const shell = new DefaultLiveClientShell({ transport, store });

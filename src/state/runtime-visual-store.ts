@@ -53,7 +53,7 @@ export class RuntimeVisualStore {
     this.update({
       ...this.state,
       connectionStatus: status,
-      lastError: status === 'connected' || status === 'disconnected' || status === 'idle' ? undefined : this.state.lastError,
+      lastError: status === 'error' ? this.state.lastError : undefined,
     });
   }
 
@@ -80,19 +80,14 @@ export class RuntimeVisualStore {
 
   private update(state: RuntimeVisualState): void {
     this.state = state;
-    const snapshot = createSnapshot(this.state);
     for (const subscriber of this.subscribers) {
-      subscriber(snapshot);
+      subscriber(createSnapshot(this.state));
     }
   }
 }
 
 function createSnapshot(state: RuntimeVisualState): Readonly<RuntimeVisualState> {
-  return {
-    ...state,
-    runtimeEvents: [...state.runtimeEvents],
-    visualEvents: [...state.visualEvents],
-  };
+  return structuredClone(state);
 }
 
 function trimTail<T>(values: T[], max: number): T[] {
