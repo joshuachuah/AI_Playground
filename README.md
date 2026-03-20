@@ -192,15 +192,34 @@ await shell.connect();
 
 For local developer-oriented previews, see `src/dev/live-shell.ts` and `src/dev/live-inspector.ts`.
 
+### Local live dashboard
+
+Run the first local browser UI slice:
+
+```bash
+npm run dev:dashboard
+```
+
+That command builds the TypeScript sources into `.build/`, starts a tiny local HTTP server, and serves a browser dashboard that boots through the existing `bootLiveClientApp(...)` path.
+
+Open the printed URL in your browser to see:
+- connection status
+- runtime/visual event counters
+- event timeline/list
+- latest-event inspector
+- last error state
+
+The dashboard currently uses the same local fixture-backed runtime stream as the terminal inspector, which keeps the UI slice narrow while exercising the real transport → store → render path.
+
 ### Local live inspector
 
-Run the current end-to-end local developer flow:
+The terminal inspector is still available:
 
 ```bash
 npm run dev:inspect
 ```
 
-That command builds the TypeScript sources into `.build/`, boots the app through the new `bootLiveClientApp(...)` path, streams a local interval-based runtime event source through the transport boundary, and prints:
+That flow prints:
 - connection status updates
 - runtime/visual event counters
 - a timeline of newly received runtime events
