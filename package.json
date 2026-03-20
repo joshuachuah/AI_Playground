@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc --noEmit false --outDir .build",
     "typecheck": "tsc --noEmit",
-    "dev:inspect": "npm run build && node .build/dev/live-inspector.js"
+    "dev:inspect": "npm run build && node .build/dev/live-inspector.js",
+    "dev:dashboard": "npm run build && node .build/dev/live-dashboard.js"
   },
   "devDependencies": {
     "@types/node": "^24.5.2",
