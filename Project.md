@@ -1,28 +1,80 @@
 # AI Playground
 
-## Implementation Status Snapshot (2026-03-19)
+## Implementation Status Snapshot (2026-03-31)
 
-- Current practical direction: build a live runtime observability app for OpenClaw-style agent activity.
-- Current implemented foundation in repo:
-  - normalized runtime event contracts
-  - runtime-to-visual translation foundation
-  - runtime visual store
-  - live client shell
-  - SSE transport
-  - WebSocket transport work via PR #5
-- Current team roles used for project execution:
-  - Yuqi = project lead / coordinator
-  - Willy = implementation bot
-  - Nick = review bot
-- Important current product distinction:
-  - **Transport v1 is not product v1.**
-  - Actual product v1 means the first end-to-end usable live client experience.
-- Main remaining work for actual v1:
-  1. real runtime event source / live endpoint
-  2. actual app boot path wiring transport + shell + store
-  3. minimal UI (connection status, event timeline/list, latest event inspector)
-  4. end-to-end local run flow
-  5. basic run documentation
+### Concise project description
+
+AI_Playground is a real-time observability interface for AI agent runtimes, currently focused on OpenClaw-first integration. The product goal is to turn real agent and runtime activity into a truthful, readable live interface instead of relying only on logs, chat transcripts, or raw tool traces.
+
+The implementation is intentionally contract-first and pipeline-oriented:
+
+1. Runtime ingestion
+2. OpenClaw adapter boundary
+3. Normalization into repo-owned `RuntimeEvent` contracts
+4. Translation into `VisualEvent` contracts
+5. Store and projection layer
+6. Browser visualization layer
+
+### What is already implemented
+
+- TypeScript repo with contract-first architecture
+- repo-owned runtime event contracts and visual event contracts
+- OpenClaw adapter boundary
+- default OpenClaw event normalizer for loose OpenClaw-style input
+- OpenClaw SSE, WebSocket, and in-memory transports that normalize raw envelopes before app ingestion
+- transport hardening so invalid raw events surface errors instead of failing silently
+- runtime-to-visual translation coverage for session, task, tool, handoff, artifact, warning, and error events
+- runtime visual store with raw buffers plus derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
+- session-scoped actor projections that preserve sparse identity fields, remove actors on `actor.removed`, and clear active tools on task failure
+- lightweight framework-free browser dashboard showing connection state, counts, warnings and errors, session snapshot, active actors, timeline, latest event inspector, and last error
+- test coverage for normalization, transports, translator behavior, store projections, and dashboard rendering helpers
+
+### What is left to build
+
+- real end-to-end OpenClaw integration against an upstream runtime or daemon
+- production-grade live endpoint and realistic local dev flow
+- richer browser controls for filtering, sorting, actor and session selection, and inspection
+- replay and history support for previous runs
+- stronger state-machine behavior under noisy real streams
+- a true scene, spatial, or 3D observability layer
+- better multi-agent orchestration UX beyond basic handoff and state representation
+- broader provider integrations beyond OpenClaw
+
+### Phase plan guiding development
+
+#### Phase 1: Real OpenClaw event pipeline
+
+- connect to a real OpenClaw source
+- wire a real SSE and WebSocket path
+- validate and harden ingestion and normalization
+- document a reliable local end-to-end run flow
+
+#### Phase 2: Usable browser product
+
+- upgrade the browser UI into a practical observability dashboard
+- add session and actor filtering plus selection
+- improve inspector and detail workflows
+- make derived current-state views central to the UI
+
+#### Phase 3: State quality and replay
+
+- strengthen translator, store, and state-machine behavior
+- add replay and history for completed runs
+- stabilize event-to-visual behavior under realistic stream conditions
+- reduce ambiguity and stale state in projections
+
+#### Phase 4: Product identity layer
+
+- add a spatial or scene-based observability experience
+- keep the visualization truthful rather than theatrical
+- improve multi-agent coordination UX
+- synchronize scene, inspector, and timeline views cleanly
+
+### Highest-leverage next PR-sized feature
+
+Implement a real OpenClaw live endpoint plus a documented local end-to-end developer flow.
+
+This is the best next slice because it exercises the entire current pipeline against real upstream behavior, exposes contract and projection gaps early, and creates the foundation every later browser, replay, and scene improvement depends on.
 
 ---
 
