@@ -106,6 +106,8 @@ function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>, uiS
   setText(root, '[data-slot="error-count"]', String(countErrors(state.runtimeEvents)));
   setText(root, '[data-slot="last-error"]', state.lastError ?? 'none');
   setText(root, '[data-slot="dominant-activity"]', selection.currentStateSummary.dominantActivity);
+  setText(root, '[data-slot="actor-focus-state"]', describeActorFocus(selection.selectedActor));
+  setText(root, '[data-slot="event-focus-state"]', describeEventFocus(selection.selectedRuntimeEvent));
 
   setHtml(root, '[data-slot="session-rail"]', renderSessionRail(selection.sessions, selection.selectedSession?.id));
   setHtml(root, '[data-slot="session-summary"]', renderSessionSummary(selection.selectedSession));
@@ -158,6 +160,9 @@ function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>, uiS
   if (statusBadge) {
     statusBadge.dataset.status = state.connectionStatus;
   }
+
+  setDisabled(root, '[data-action="clear-actor-focus"]', !selection.selectedActor);
+  setDisabled(root, '[data-action="clear-event-focus"]', !selection.selectedRuntimeEvent);
 }
 
 function renderShell(): string {
@@ -260,7 +265,10 @@ function renderShell(): string {
         <article class="panel">
           <div class="panel-header">
             <h2>Selected actor</h2>
-            <span class="subtle">detail view</span>
+            <div class="panel-actions">
+              <span class="subtle" data-slot="actor-focus-state">session-wide view</span>
+              <button type="button" class="action-button" data-action="clear-actor-focus">Clear focus</button>
+            </div>
           </div>
           <div data-slot="selected-actor"></div>
         </article>
@@ -288,8 +296,12 @@ function renderShell(): string {
         <article class="panel">
           <div class="panel-header">
             <h2>Focused inspector</h2>
-            <span class="subtle" data-slot="focused-session">none</span>
+            <div class="panel-actions">
+              <span class="subtle" data-slot="event-focus-state">timeline browsing</span>
+              <button type="button" class="action-button" data-action="clear-event-focus">Clear focus</button>
+            </div>
           </div>
+          <p class="subtle" data-slot="focused-session">none</p>
           <div data-slot="inspector-summary"></div>
           <dl class="key-values">
             <div><dt>Runtime kind</dt><dd data-slot="focused-runtime-kind">none</dd></div>
@@ -340,7 +352,7 @@ export function renderSessionSummary(session: RuntimeVisualSessionProjection | u
 
 export function renderSelectedActor(actor: RuntimeVisualActorProjection | undefined): string {
   if (!actor) {
-    return '<p class="empty">Select an actor to inspect current state…</p>';
+    return '<p class="empty">Session-wide state view. Select an actor to inspect an individual projection.</p>';
   }
 
   return `
@@ -463,7 +475,7 @@ export function renderInspectorSummary(
   visualEvent: VisualEvent | undefined,
 ): string {
   if (!runtimeEvent) {
-    return '<p class="empty">Select a timeline event to inspect payload and visual evidence.</p>';
+    return '<p class="empty">Browsing the live timeline. Select an event to pin payload and visual evidence here.</p>';
   }
 
   return `
@@ -745,6 +757,20 @@ function bindDashboardControls(root: HTMLElement, uiState: LiveDashboardUiState,
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
+    const actionButton = target.closest<HTMLButtonElement>('[data-action]');
+    if (actionButton) {
+      switch (actionButton.dataset.action) {
+        case 'clear-actor-focus':
+          uiState.selectedActorKey = undefined;
+          rerender();
+          return;
+        case 'clear-event-focus':
+          uiState.selectedRuntimeEventId = undefined;
+          rerender();
+          return;
+      }
+    }
+
     const sessionCard = target.closest<HTMLElement>('[data-session-id]');
     if (sessionCard) {
       uiState.selectedSessionId = readOptionalString(sessionCard.dataset.sessionId);
@@ -874,6 +900,21 @@ function setText(root: HTMLElement, selector: string, value: string): void {
 function setHtml(root: HTMLElement, selector: string, value: string): void {
   const element = root.querySelector<HTMLElement>(selector);
   if (element) element.innerHTML = value;
+}
+
+function setDisabled(root: HTMLElement, selector: string, disabled: boolean): void {
+  const element = root.querySelector<HTMLButtonElement>(selector);
+  if (element) {
+    element.disabled = disabled;
+  }
+}
+
+function describeActorFocus(actor: RuntimeVisualActorProjection | undefined): string {
+  return actor ? `focused on ${actor.name}` : 'session-wide view';
+}
+
+function describeEventFocus(event: RuntimeEvent | undefined): string {
+  return event ? `pinned ${event.kind}` : 'timeline browsing';
 }
 
 function formatTimestamp(timestamp: string): string {

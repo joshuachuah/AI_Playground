@@ -107,6 +107,12 @@ test('renders selected actor details', () => {
   assert.match(html, /Writing the dashboard shell/);
 });
 
+test('renders selected actor empty state as session-wide view', () => {
+  const html = renderSelectedActor(undefined);
+
+  assert.match(html, /Session-wide state view/);
+});
+
 test('renders current state summary for the selected session', () => {
   const html = renderCurrentStateSummary(
     {
@@ -150,6 +156,12 @@ test('renders inspector summary with linked visual evidence', () => {
 
   assert.match(html, /evt-1/);
   assert.match(html, /vis-1/);
+});
+
+test('renders inspector summary empty state while browsing timeline', () => {
+  const html = renderInspectorSummary(undefined, undefined);
+
+  assert.match(html, /Browsing the live timeline/);
 });
 
 test('renders timeline with focused event state', () => {
@@ -482,4 +494,83 @@ test('selectDashboardState keeps session-wide timeline when actor is not explici
   assert.equal(selection.selectedRuntimeEvent, undefined);
   assert.deepEqual(selection.timelineEvents.map((event) => event.id), ['evt-1', 'evt-2']);
   assert.equal(selection.currentStateSummary.visibleActors, 2);
+});
+
+test('selectDashboardState preserves explicit event focus after actor focus is cleared', () => {
+  const state = {
+    connectionStatus: 'connected',
+    runtimeEvents: [
+      {
+        id: 'evt-1',
+        timestamp: '2026-03-31T20:00:00.000Z',
+        sessionId: 'session-2',
+        source: 'openclaw.runtime',
+        kind: 'task.started',
+        actor: { id: 'agent-2', name: 'Nick' },
+        payload: { taskId: 'task-2', title: 'Review dashboard', status: 'started' },
+      },
+      {
+        id: 'evt-2',
+        timestamp: '2026-03-31T20:00:01.000Z',
+        sessionId: 'session-2',
+        source: 'openclaw.runtime',
+        kind: 'tool.started',
+        actor: { id: 'agent-3', name: 'Yuqi' },
+        payload: { tool: { name: 'web_search' }, status: 'started' },
+      },
+    ],
+    visualEvents: [
+      {
+        id: 'vis-2',
+        timestamp: '2026-03-31T20:00:01.000Z',
+        sessionId: 'session-2',
+        actorId: 'agent-3',
+        type: 'actor.tool.started',
+        summary: 'Yuqi started web_search',
+        sourceRuntimeEventIds: ['evt-2'],
+      },
+    ],
+    lastError: undefined,
+    sessionsById: {
+      'session-2': {
+        id: 'session-2',
+        actorIds: ['agent-2', 'agent-3'],
+        updatedAt: '2026-03-31T20:00:01.000Z',
+      },
+    },
+    actorsById: {
+      'session-2:agent-2': {
+        id: 'agent-2',
+        name: 'Nick',
+        role: 'review',
+        sessionId: 'session-2',
+        currentTaskTitle: 'Review dashboard',
+        currentActivity: 'coding',
+        lastRuntimeEventId: 'evt-1',
+        updatedAt: '2026-03-31T20:00:00.000Z',
+      },
+      'session-2:agent-3': {
+        id: 'agent-3',
+        name: 'Yuqi',
+        role: 'research',
+        sessionId: 'session-2',
+        currentToolName: 'web_search',
+        currentActivity: 'researching',
+        lastRuntimeEventId: 'evt-2',
+        updatedAt: '2026-03-31T20:00:01.000Z',
+      },
+    },
+  } as RuntimeVisualState;
+
+  const selection = selectDashboardState(state, {
+    selectedSessionId: 'session-2',
+    selectedRuntimeEventId: 'evt-2',
+    actorFilterText: '',
+    actorSort: 'updated',
+    timelineFilter: 'all',
+  });
+
+  assert.equal(selection.selectedActor, undefined);
+  assert.equal(selection.selectedRuntimeEvent?.id, 'evt-2');
+  assert.equal(selection.selectedVisualEvent?.id, 'vis-2');
 });
