@@ -1,3 +1,4 @@
+export * from './adapters/index.js';
 export * from './app/index.js';
 export * from './app/boot.js';
 export * from './contracts/index.js';

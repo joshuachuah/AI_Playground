@@ -45,13 +45,16 @@ The repo is structured around a few core layers:
 ### 1. Runtime ingestion
 Accept raw or semi-structured runtime signals from OpenClaw-oriented sources.
 
-### 2. Normalization
+### 2. Adapter + normalization
+Use an OpenClaw-specific adapter boundary to convert upstream payloads into repo-owned runtime events.
+
+### 3. Normalization
 Convert upstream payloads into a repo-owned runtime event contract.
 
-### 3. Translation
+### 4. Translation
 Map runtime events into visual events that a scene/UI can render clearly.
 
-### 4. Visualization client
+### 5. Visualization client
 A future browser client will render:
 - scene zones
 - runtime entities/bots
@@ -65,6 +68,9 @@ A future browser client will render:
 ├─ docs/
 │  └─ architecture.md
 ├─ src/
+│  ├─ adapters/
+│  │  ├─ openclaw.ts
+│  │  └─ index.ts
 │  ├─ app/
 │  │  ├─ index.ts
 │  │  └─ live-client-shell.ts
@@ -96,6 +102,7 @@ A future browser client will render:
 
 The project currently includes the engineering foundation for the live MVP:
 
+- an explicit OpenClaw adapter boundary for normalization work
 - a repo-owned runtime event contract
 - a visual event contract
 - a runtime-to-visual translator layer
@@ -107,6 +114,7 @@ The project currently includes the engineering foundation for the live MVP:
 - architecture documentation for the live MVP
 
 This is intentionally foundation-first. The goal was to lock in the event model and translation seam before investing in UI and rendering work.
+The new adapter seam keeps upstream-specific parsing isolated so later OpenClaw payload work can evolve without bleeding into the browser/store code.
 
 ## What does not exist yet
 
