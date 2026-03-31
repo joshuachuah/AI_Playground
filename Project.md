@@ -26,14 +26,13 @@ The implementation is intentionally contract-first and pipeline-oriented:
 - runtime-to-visual translation coverage for session, task, tool, handoff, artifact, warning, and error events
 - runtime visual store with raw buffers plus derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
 - session-scoped actor projections that preserve sparse identity fields, remove actors on `actor.removed`, and clear active tools on task failure
-- lightweight framework-free browser dashboard showing connection state, counts, warnings and errors, session snapshot, session selection, actor filtering and selection, active actor detail, timeline, latest event inspector, and last error
+- lightweight framework-free browser dashboard showing connection state, counts, warnings and errors, session snapshot, session rail, actor filtering, sorting, and selection, current-state summary, focused event inspector, and last error
 - test coverage for normalization, transports, translator behavior, store projections, and dashboard rendering helpers
 
 ### What is left to build
 
 - real end-to-end OpenClaw integration against an upstream runtime or daemon
 - production-grade live endpoint and realistic local dev flow
-- richer browser controls for filtering, sorting, actor and session selection, and inspection
 - replay and history support for previous runs
 - stronger state-machine behavior under noisy real streams
 - a true scene, spatial, or 3D observability layer
@@ -51,10 +50,12 @@ The implementation is intentionally contract-first and pipeline-oriented:
 
 #### Phase 2: Usable browser product
 
-- upgrade the browser UI into a practical observability dashboard
-- add session and actor filtering plus selection
-- improve inspector and detail workflows
-- make derived current-state views central to the UI
+Completed in the current repo:
+
+- upgraded the browser UI into a practical observability dashboard
+- added session and actor filtering plus selection
+- improved inspector and detail workflows
+- made derived current-state views central to the UI
 
 #### Phase 3: State quality and replay
 
