@@ -248,3 +248,67 @@ test('selectDashboardState prefers explicit session and actor selection with fil
   assert.equal(selection.selectedActor?.id, 'agent-2');
   assert.deepEqual(selection.timelineEvents.map((event) => event.id), ['evt-2']);
 });
+
+test('selectDashboardState keeps session-wide timeline when actor is not explicitly selected', () => {
+  const state = {
+    connectionStatus: 'connected',
+    runtimeEvents: [
+      {
+        id: 'evt-1',
+        timestamp: '2026-03-31T20:00:00.000Z',
+        sessionId: 'session-2',
+        source: 'openclaw.runtime',
+        kind: 'task.started',
+        actor: { id: 'agent-2', name: 'Nick' },
+        payload: { taskId: 'task-2', title: 'Review dashboard', status: 'started' },
+      },
+      {
+        id: 'evt-2',
+        timestamp: '2026-03-31T20:00:01.000Z',
+        sessionId: 'session-2',
+        source: 'openclaw.runtime',
+        kind: 'tool.started',
+        actor: { id: 'agent-3', name: 'Yuqi' },
+        payload: { toolName: 'web_search', status: 'started' },
+      },
+    ],
+    visualEvents: [],
+    lastError: undefined,
+    sessionsById: {
+      'session-2': {
+        id: 'session-2',
+        actorIds: ['agent-2', 'agent-3'],
+        updatedAt: '2026-03-31T20:00:01.000Z',
+      },
+    },
+    actorsById: {
+      'session-2:agent-2': {
+        id: 'agent-2',
+        name: 'Nick',
+        role: 'review',
+        sessionId: 'session-2',
+        currentTaskTitle: 'Review dashboard',
+        lastRuntimeEventId: 'evt-1',
+        updatedAt: '2026-03-31T20:00:00.000Z',
+      },
+      'session-2:agent-3': {
+        id: 'agent-3',
+        name: 'Yuqi',
+        role: 'research',
+        sessionId: 'session-2',
+        currentTaskTitle: 'Search references',
+        lastRuntimeEventId: 'evt-2',
+        updatedAt: '2026-03-31T20:00:01.000Z',
+      },
+    },
+  } as RuntimeVisualState;
+
+  const selection = selectDashboardState(state, {
+    selectedSessionId: 'session-2',
+    actorFilterText: '',
+  });
+
+  assert.equal(selection.selectedSession?.id, 'session-2');
+  assert.equal(selection.selectedActor, undefined);
+  assert.deepEqual(selection.timelineEvents.map((event) => event.id), ['evt-1', 'evt-2']);
+});

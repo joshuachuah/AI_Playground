@@ -380,16 +380,11 @@ function readSelectedActor(
   actors: readonly RuntimeVisualActorProjection[],
   selectedActorKey?: string,
 ): RuntimeVisualActorProjection | undefined {
-  if (selectedActorKey) {
-    const explicit = actors.find(
-      (actor) => createRuntimeVisualActorKey(actor.sessionId, actor.id) === selectedActorKey,
-    );
-    if (explicit) {
-      return explicit;
-    }
+  if (!selectedActorKey) {
+    return undefined;
   }
 
-  return actors.at(0);
+  return actors.find((actor) => createRuntimeVisualActorKey(actor.sessionId, actor.id) === selectedActorKey);
 }
 
 export function readCurrentActors(
