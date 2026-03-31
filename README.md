@@ -35,7 +35,7 @@ The repository already includes the current live-pipeline foundation:
 - expanded runtime-to-visual translation coverage for session events, task start/progress/completion/failure, tool start/completion/failure, message handoff events, artifact events, warnings, and errors
 - a runtime visual store that keeps both raw buffers and derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
 - actor projections that are session-scoped, remove actors on `actor.removed`, preserve role and kind across sparse events, and clear active tools on task failure
-- a lightweight, framework-free local browser dashboard that shows connection state, runtime and visual event counts, warning and error counts, session snapshot, session selection, actor filtering and selection, active actor detail, event timeline, latest event inspector, and last error
+- a lightweight, framework-free local browser dashboard that shows connection state, runtime and visual event counts, warning and error counts, session snapshot, session rail, actor filtering, sorting, and selection, current-state summary, focused event inspector, and last error
 - a built-in test suite covering normalization, transports, translator behavior, store projections, and dashboard rendering helpers
 
 ## What is left to build
@@ -44,7 +44,6 @@ The main remaining gaps are productizing the current foundation:
 
 - real end-to-end OpenClaw integration against an upstream runtime or daemon instead of only local fixture-backed previews
 - a production-grade live endpoint and a realistic local developer flow for OpenClaw
-- richer browser controls for filtering, sorting, actor and session selection, and better inspection workflows
 - replay and history support for previous runs
 - stronger state-machine behavior to stabilize visual state under noisy real streams
 - a real scene, spatial, or 3D observability layer
@@ -62,10 +61,12 @@ The main remaining gaps are productizing the current foundation:
 
 ### Phase 2: Usable browser product
 
-- upgrade the browser UI into a practical observability dashboard
-- add session and actor filtering plus explicit selection
-- improve inspector and detail workflows
-- make derived current-state views central to the UI
+Completed in the current repo:
+
+- upgraded the browser UI into a practical observability dashboard
+- added session and actor filtering plus explicit selection
+- improved inspector and detail workflows
+- made derived current-state views central to the UI
 
 ### Phase 3: State quality and replay
 

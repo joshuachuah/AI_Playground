@@ -12,6 +12,9 @@ import { readOpenClawDevConnectionConfig, type OpenClawDevConnectionConfig } fro
 
 const TIMELINE_LIMIT = 12;
 
+type ActorSortKey = 'updated' | 'name' | 'activity';
+type TimelineFilterKind = 'all' | 'tasks' | 'tools' | 'messages' | 'artifacts' | 'system';
+
 declare global {
   interface Window {
     __AI_PLAYGROUND_OPENCLAW__?: OpenClawDevConnectionConfig;
@@ -21,7 +24,10 @@ declare global {
 interface LiveDashboardUiState {
   selectedSessionId?: string;
   selectedActorKey?: string;
+  selectedRuntimeEventId?: string;
   actorFilterText: string;
+  actorSort: ActorSortKey;
+  timelineFilter: TimelineFilterKind;
 }
 
 interface LiveDashboardSelection {
@@ -30,6 +36,17 @@ interface LiveDashboardSelection {
   actors: RuntimeVisualActorProjection[];
   selectedActor?: RuntimeVisualActorProjection;
   timelineEvents: RuntimeEvent[];
+  selectedRuntimeEvent?: RuntimeEvent;
+  selectedVisualEvent?: VisualEvent;
+  currentStateSummary: CurrentStateSummary;
+}
+
+interface CurrentStateSummary {
+  visibleActors: number;
+  activeTasks: number;
+  activeTools: number;
+  actorsWithErrors: number;
+  dominantActivity: string;
 }
 
 export async function mountLiveDashboard(
@@ -40,6 +57,8 @@ export async function mountLiveDashboard(
 
   const uiState: LiveDashboardUiState = {
     actorFilterText: '',
+    actorSort: 'updated',
+    timelineFilter: 'all',
   };
 
   setText(root, '[data-slot="connection-source"]', describeOpenClawDevConnection(config));
@@ -53,7 +72,6 @@ export async function mountLiveDashboard(
   });
 
   const transport = createBrowserOpenClawDevTransport(config);
-
   const app = bootLiveClientApp({ transport });
   const unsubscribe = app.store.subscribe((state) => {
     latestState = state;
@@ -79,36 +97,58 @@ function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>, uiS
   setText(root, '[data-slot="connection-status"]', state.connectionStatus);
   setText(root, '[data-slot="runtime-count"]', String(state.runtimeEvents.length));
   setText(root, '[data-slot="visual-count"]', String(state.visualEvents.length));
-  setText(root, '[data-slot="error-count"]', String(countErrors(state.runtimeEvents)));
-  setText(root, '[data-slot="warning-count"]', String(countWarnings(state.runtimeEvents)));
-  setText(root, '[data-slot="actor-count"]', String(selection.actors.length));
   setText(root, '[data-slot="session-count"]', String(selection.sessions.length));
+  setText(root, '[data-slot="actor-count"]', String(selection.currentStateSummary.visibleActors));
+  setText(root, '[data-slot="active-task-count"]', String(selection.currentStateSummary.activeTasks));
+  setText(root, '[data-slot="active-tool-count"]', String(selection.currentStateSummary.activeTools));
+  setText(root, '[data-slot="issue-count"]', String(selection.currentStateSummary.actorsWithErrors));
+  setText(root, '[data-slot="warning-count"]', String(countWarnings(state.runtimeEvents)));
+  setText(root, '[data-slot="error-count"]', String(countErrors(state.runtimeEvents)));
   setText(root, '[data-slot="last-error"]', state.lastError ?? 'none');
+  setText(root, '[data-slot="dominant-activity"]', selection.currentStateSummary.dominantActivity);
 
-  const latestRuntimeEvent = selection.timelineEvents.at(-1);
-  const latestVisualEvent = readLatestVisualEventForSelection(state, selection.selectedSession?.id, selection.selectedActor?.id);
-
-  setHtml(root, '[data-slot="timeline"]', renderTimeline(selection.timelineEvents));
+  setHtml(root, '[data-slot="session-rail"]', renderSessionRail(selection.sessions, selection.selectedSession?.id));
   setHtml(root, '[data-slot="session-summary"]', renderSessionSummary(selection.selectedSession));
-  setHtml(root, '[data-slot="actor-cards"]', renderActorCards(selection.actors, selection.selectedActor?.id));
   setHtml(root, '[data-slot="selected-actor"]', renderSelectedActor(selection.selectedActor));
-  setText(root, '[data-slot="latest-runtime-kind"]', latestRuntimeEvent?.kind ?? 'none');
-  setText(root, '[data-slot="latest-runtime-source"]', latestRuntimeEvent?.source ?? 'none');
-  setText(root, '[data-slot="latest-runtime-actor"]', latestRuntimeEvent?.actor?.name ?? 'none');
-  setText(root, '[data-slot="latest-visual-type"]', latestVisualEvent?.type ?? 'none');
-  setText(root, '[data-slot="latest-visual-summary"]', latestVisualEvent?.summary ?? 'none');
-  setText(root, '[data-slot="latest-session"]', selection.selectedSession?.id ?? latestRuntimeEvent?.sessionId ?? 'none');
-  setHtml(root, '[data-slot="latest-payload"]', renderJson(latestRuntimeEvent?.payload ?? null));
+  setHtml(root, '[data-slot="actor-cards"]', renderActorCards(selection.actors, selection.selectedActor?.id));
   setHtml(
     root,
-    '[data-slot="latest-visual"]',
+    '[data-slot="state-summary"]',
+    renderCurrentStateSummary(selection.currentStateSummary, selection.selectedSession),
+  );
+  setHtml(
+    root,
+    '[data-slot="timeline"]',
+    renderTimeline(selection.timelineEvents, selection.selectedRuntimeEvent?.id),
+  );
+  setHtml(
+    root,
+    '[data-slot="inspector-summary"]',
+    renderInspectorSummary(selection.selectedRuntimeEvent, selection.selectedVisualEvent),
+  );
+
+  setText(root, '[data-slot="focused-runtime-kind"]', selection.selectedRuntimeEvent?.kind ?? 'none');
+  setText(root, '[data-slot="focused-runtime-source"]', selection.selectedRuntimeEvent?.source ?? 'none');
+  setText(root, '[data-slot="focused-runtime-actor"]', selection.selectedRuntimeEvent?.actor?.name ?? 'none');
+  setText(root, '[data-slot="focused-visual-type"]', selection.selectedVisualEvent?.type ?? 'none');
+  setText(root, '[data-slot="focused-visual-summary"]', selection.selectedVisualEvent?.summary ?? 'none');
+  setText(
+    root,
+    '[data-slot="focused-session"]',
+    selection.selectedSession?.id ?? selection.selectedRuntimeEvent?.sessionId ?? 'none',
+  );
+  setHtml(root, '[data-slot="focused-payload"]', renderJson(selection.selectedRuntimeEvent?.payload ?? null));
+  setHtml(
+    root,
+    '[data-slot="focused-visual"]',
     renderJson(
-      latestVisualEvent
+      selection.selectedVisualEvent
         ? {
-            type: latestVisualEvent.type,
-            summary: latestVisualEvent.summary,
-            scene: latestVisualEvent.scene,
-            ui: latestVisualEvent.ui,
+            type: selection.selectedVisualEvent.type,
+            summary: selection.selectedVisualEvent.summary,
+            scene: selection.selectedVisualEvent.scene,
+            ui: selection.selectedVisualEvent.ui,
+            sourceRuntimeEventIds: selection.selectedVisualEvent.sourceRuntimeEventIds,
           }
         : null,
     ),
@@ -126,8 +166,8 @@ function renderShell(): string {
       <header class="hero">
         <div>
           <p class="eyebrow">AI_Playground · local live dashboard</p>
-          <h1>Runtime observability v1 slice</h1>
-          <p class="subtle">Minimal browser UI over the existing boot → transport → store path.</p>
+          <h1>Truthful runtime observability</h1>
+          <p class="subtle">Current state first, event evidence second.</p>
           <p class="subtle" data-slot="connection-source">fixture sample stream</p>
         </div>
         <div class="status-card">
@@ -144,6 +184,8 @@ function renderShell(): string {
         <article class="panel stat-panel"><div class="label">Visual events</div><div class="value" data-slot="visual-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Sessions</div><div class="value" data-slot="session-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Visible actors</div><div class="value" data-slot="actor-count">0</div></article>
+        <article class="panel stat-panel"><div class="label">Active tasks</div><div class="value" data-slot="active-task-count">0</div></article>
+        <article class="panel stat-panel"><div class="label">Active tools</div><div class="value" data-slot="active-tool-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Warnings</div><div class="value" data-slot="warning-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Errors</div><div class="value" data-slot="error-count">0</div></article>
       </section>
@@ -151,8 +193,8 @@ function renderShell(): string {
       <section class="grid controls-grid">
         <article class="panel">
           <div class="panel-header">
-            <h2>Dashboard controls</h2>
-            <span class="subtle">phase 2</span>
+            <h2>Controls</h2>
+            <span class="subtle">phase 2 complete</span>
           </div>
           <div class="control-grid">
             <label class="control-field">
@@ -165,11 +207,48 @@ function renderShell(): string {
               <span>Actor filter</span>
               <input data-slot="actor-filter" type="search" placeholder="Name, role, task, zone…" />
             </label>
+            <label class="control-field">
+              <span>Actor sort</span>
+              <select data-slot="actor-sort">
+                <option value="updated">Latest activity</option>
+                <option value="name">Name</option>
+                <option value="activity">Activity</option>
+              </select>
+            </label>
+            <label class="control-field">
+              <span>Timeline focus</span>
+              <select data-slot="timeline-filter">
+                <option value="all">All events</option>
+                <option value="tasks">Task events</option>
+                <option value="tools">Tool events</option>
+                <option value="messages">Messages</option>
+                <option value="artifacts">Artifacts</option>
+                <option value="system">Warnings and errors</option>
+              </select>
+            </label>
           </div>
         </article>
       </section>
 
-      <section class="grid main-grid">
+      <section class="grid session-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Sessions</h2>
+            <span class="subtle">current runs</span>
+          </div>
+          <div class="session-rail" data-slot="session-rail"></div>
+        </article>
+      </section>
+
+      <section class="grid hero-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Current state</h2>
+            <span class="subtle" data-slot="dominant-activity">idle</span>
+          </div>
+          <div data-slot="state-summary"></div>
+        </article>
+
         <article class="panel">
           <div class="panel-header">
             <h2>Session snapshot</h2>
@@ -191,41 +270,42 @@ function renderShell(): string {
         <article class="panel">
           <div class="panel-header">
             <h2>Actors</h2>
-            <span class="subtle">click to inspect</span>
+            <span class="subtle">sorted live projections</span>
           </div>
           <div class="actor-grid" data-slot="actor-cards"></div>
         </article>
 
         <article class="panel">
           <div class="panel-header">
-            <h2>Event timeline</h2>
-            <span class="subtle">latest ${TIMELINE_LIMIT}</span>
+            <h2>Timeline</h2>
+            <span class="subtle">click an event to inspect</span>
           </div>
           <div class="timeline" data-slot="timeline"></div>
         </article>
       </section>
 
-      <section class="grid main-grid">
+      <section class="grid inspector-grid-shell">
         <article class="panel">
           <div class="panel-header">
-            <h2>Latest event inspector</h2>
-            <span class="subtle" data-slot="latest-session">none</span>
+            <h2>Focused inspector</h2>
+            <span class="subtle" data-slot="focused-session">none</span>
           </div>
+          <div data-slot="inspector-summary"></div>
           <dl class="key-values">
-            <div><dt>Runtime kind</dt><dd data-slot="latest-runtime-kind">none</dd></div>
-            <div><dt>Runtime source</dt><dd data-slot="latest-runtime-source">none</dd></div>
-            <div><dt>Actor</dt><dd data-slot="latest-runtime-actor">none</dd></div>
-            <div><dt>Visual type</dt><dd data-slot="latest-visual-type">none</dd></div>
-            <div><dt>Visual summary</dt><dd data-slot="latest-visual-summary">none</dd></div>
+            <div><dt>Runtime kind</dt><dd data-slot="focused-runtime-kind">none</dd></div>
+            <div><dt>Runtime source</dt><dd data-slot="focused-runtime-source">none</dd></div>
+            <div><dt>Actor</dt><dd data-slot="focused-runtime-actor">none</dd></div>
+            <div><dt>Visual type</dt><dd data-slot="focused-visual-type">none</dd></div>
+            <div><dt>Visual summary</dt><dd data-slot="focused-visual-summary">none</dd></div>
           </dl>
           <div class="inspector-grid">
             <div>
               <h3>Runtime payload</h3>
-              <pre data-slot="latest-payload">null</pre>
+              <pre data-slot="focused-payload">null</pre>
             </div>
             <div>
               <h3>Visual projection</h3>
-              <pre data-slot="latest-visual">null</pre>
+              <pre data-slot="focused-visual">null</pre>
             </div>
           </div>
         </article>
@@ -309,7 +389,7 @@ export function renderActorCards(
     .join('');
 }
 
-export function renderTimeline(events: readonly RuntimeEvent[]): string {
+export function renderTimeline(events: readonly RuntimeEvent[], selectedRuntimeEventId?: string): string {
   if (events.length === 0) {
     return '<p class="empty">No runtime events match the current selection.</p>';
   }
@@ -320,8 +400,11 @@ export function renderTimeline(events: readonly RuntimeEvent[]): string {
     .map((event) => {
       const actorName = event.actor?.name ?? 'unknown';
       const summary = readEventSummary(event);
+      const selected = event.id === selectedRuntimeEventId;
       return `
-        <article class="timeline-item">
+        <article class="timeline-item${selected ? ' is-selected' : ''}" data-event-id="${escapeHtml(
+          event.id,
+        )}" role="button" tabindex="0" aria-pressed="${selected ? 'true' : 'false'}">
           <div class="timeline-meta">
             <span class="timeline-kind">${escapeHtml(event.kind)}</span>
             <span>${escapeHtml(formatTimestamp(event.timestamp))}</span>
@@ -334,18 +417,82 @@ export function renderTimeline(events: readonly RuntimeEvent[]): string {
     .join('');
 }
 
+export function renderSessionRail(
+  sessions: readonly RuntimeVisualSessionProjection[],
+  selectedSessionId?: string,
+): string {
+  if (sessions.length === 0) {
+    return '<p class="empty">Waiting for sessions…</p>';
+  }
+
+  return sessions
+    .map((session) => {
+      const selected = session.id === selectedSessionId;
+      return `
+        <article class="session-chip${selected ? ' is-selected' : ''}" data-session-id="${escapeHtml(
+          session.id,
+        )}" role="button" tabindex="0" aria-pressed="${selected ? 'true' : 'false'}">
+          <div class="session-chip-title">${escapeHtml(session.title ?? session.id)}</div>
+          <div class="session-chip-meta">${escapeHtml(session.status ?? 'unknown')} · ${escapeHtml(
+            String(session.actorIds.length),
+          )} actors</div>
+        </article>
+      `;
+    })
+    .join('');
+}
+
+export function renderCurrentStateSummary(
+  summary: CurrentStateSummary,
+  session: RuntimeVisualSessionProjection | undefined,
+): string {
+  return `
+    <dl class="key-values">
+      <div><dt>Session</dt><dd>${escapeHtml(session?.title ?? session?.id ?? 'none')}</dd></div>
+      <div><dt>Visible actors</dt><dd>${escapeHtml(String(summary.visibleActors))}</dd></div>
+      <div><dt>Active tasks</dt><dd>${escapeHtml(String(summary.activeTasks))}</dd></div>
+      <div><dt>Active tools</dt><dd>${escapeHtml(String(summary.activeTools))}</dd></div>
+      <div><dt>Issues</dt><dd>${escapeHtml(String(summary.actorsWithErrors))}</dd></div>
+      <div><dt>Dominant activity</dt><dd>${escapeHtml(summary.dominantActivity)}</dd></div>
+    </dl>
+  `;
+}
+
+export function renderInspectorSummary(
+  runtimeEvent: RuntimeEvent | undefined,
+  visualEvent: VisualEvent | undefined,
+): string {
+  if (!runtimeEvent) {
+    return '<p class="empty">Select a timeline event to inspect payload and visual evidence.</p>';
+  }
+
+  return `
+    <p class="subtle">
+      ${escapeHtml(runtimeEvent.id)}
+      ${visualEvent ? ` · linked visual ${escapeHtml(visualEvent.id)}` : ' · no linked visual event'}
+    </p>
+  `;
+}
+
 export function selectDashboardState(
   state: Readonly<RuntimeVisualState>,
   uiState: LiveDashboardUiState,
 ): LiveDashboardSelection {
   const sessions = listSessions(state);
   const selectedSession = readSelectedSession(sessions, uiState.selectedSessionId);
-  const actors = filterActors(
+  const filteredActors = filterActors(
     readCurrentActors(state, selectedSession),
     normalizeFilterText(uiState.actorFilterText),
   );
+  const actors = sortActors(filteredActors, uiState.actorSort);
   const selectedActor = readSelectedActor(actors, uiState.selectedActorKey);
-  const timelineEvents = filterTimelineEvents(state.runtimeEvents, selectedSession?.id, selectedActor?.id);
+  const timelineEvents = filterTimelineByCategory(
+    filterTimelineEvents(state.runtimeEvents, selectedSession?.id, selectedActor?.id),
+    uiState.timelineFilter,
+  );
+  const selectedRuntimeEvent = readSelectedRuntimeEvent(timelineEvents, uiState.selectedRuntimeEventId);
+  const selectedVisualEvent = readLinkedVisualEvent(state.visualEvents, selectedRuntimeEvent);
+  const currentStateSummary = summarizeCurrentState(actors);
 
   return {
     sessions,
@@ -353,6 +500,9 @@ export function selectDashboardState(
     actors,
     selectedActor,
     timelineEvents,
+    selectedRuntimeEvent,
+    selectedVisualEvent,
+    currentStateSummary,
   };
 }
 
@@ -385,6 +535,20 @@ function readSelectedActor(
   }
 
   return actors.find((actor) => createRuntimeVisualActorKey(actor.sessionId, actor.id) === selectedActorKey);
+}
+
+function readSelectedRuntimeEvent(
+  events: readonly RuntimeEvent[],
+  selectedRuntimeEventId?: string,
+): RuntimeEvent | undefined {
+  if (selectedRuntimeEventId) {
+    const explicit = events.find((event) => event.id === selectedRuntimeEventId);
+    if (explicit) {
+      return explicit;
+    }
+  }
+
+  return events.at(-1);
 }
 
 export function readCurrentActors(
@@ -425,6 +589,24 @@ export function filterActors(
   });
 }
 
+export function sortActors(
+  actors: readonly RuntimeVisualActorProjection[],
+  sortKey: ActorSortKey,
+): RuntimeVisualActorProjection[] {
+  const next = [...actors];
+
+  switch (sortKey) {
+    case 'name':
+      return next.sort((left, right) => left.name.localeCompare(right.name));
+    case 'activity':
+      return next.sort((left, right) =>
+        `${left.currentActivity ?? 'zzz'}${left.name}`.localeCompare(`${right.currentActivity ?? 'zzz'}${right.name}`),
+      );
+    case 'updated':
+      return next.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+}
+
 export function filterTimelineEvents(
   events: readonly RuntimeEvent[],
   sessionId?: string,
@@ -443,14 +625,66 @@ export function filterTimelineEvents(
   });
 }
 
-function readLatestVisualEventForSelection(
-  state: Readonly<RuntimeVisualState>,
-  sessionId?: string,
-  actorId?: string,
+export function filterTimelineByCategory(
+  events: readonly RuntimeEvent[],
+  timelineFilter: TimelineFilterKind,
+): RuntimeEvent[] {
+  if (timelineFilter === 'all') {
+    return [...events];
+  }
+
+  return events.filter((event) => matchesTimelineCategory(event, timelineFilter));
+}
+
+function matchesTimelineCategory(event: RuntimeEvent, timelineFilter: TimelineFilterKind): boolean {
+  switch (timelineFilter) {
+    case 'tasks':
+      return event.kind.startsWith('task.');
+    case 'tools':
+      return event.kind.startsWith('tool.');
+    case 'messages':
+      return event.kind.startsWith('message.');
+    case 'artifacts':
+      return event.kind.startsWith('artifact.');
+    case 'system':
+      return event.kind === 'warning' || event.kind === 'error' || event.kind.endsWith('.failed');
+    case 'all':
+      return true;
+  }
+}
+
+function readLinkedVisualEvent(
+  visualEvents: readonly VisualEvent[],
+  runtimeEvent: RuntimeEvent | undefined,
 ): VisualEvent | undefined {
-  return [...state.visualEvents]
+  if (!runtimeEvent) {
+    return undefined;
+  }
+
+  return [...visualEvents]
     .reverse()
-    .find((event) => (!sessionId || event.sessionId === sessionId) && (!actorId || event.actorId === actorId));
+    .find((event) => event.sourceRuntimeEventIds.includes(runtimeEvent.id));
+}
+
+function summarizeCurrentState(actors: readonly RuntimeVisualActorProjection[]): CurrentStateSummary {
+  const activityCounts = new Map<string, number>();
+
+  for (const actor of actors) {
+    if (actor.currentActivity) {
+      activityCounts.set(actor.currentActivity, (activityCounts.get(actor.currentActivity) ?? 0) + 1);
+    }
+  }
+
+  const dominantActivity =
+    [...activityCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0]?.replaceAll('_', ' ') ?? 'idle';
+
+  return {
+    visibleActors: actors.length,
+    activeTasks: actors.filter((actor) => actor.currentTaskTitle).length,
+    activeTools: actors.filter((actor) => actor.currentToolName).length,
+    actorsWithErrors: actors.filter((actor) => actor.lastError).length,
+    dominantActivity,
+  };
 }
 
 function readEventSummary(event: RuntimeEvent): string {
@@ -482,16 +716,31 @@ function countErrors(events: readonly RuntimeEvent[]): number {
 function bindDashboardControls(root: HTMLElement, uiState: LiveDashboardUiState, rerender: () => void): void {
   const sessionSelect = root.querySelector<HTMLSelectElement>('[data-slot="session-select"]');
   const actorFilter = root.querySelector<HTMLInputElement>('[data-slot="actor-filter"]');
+  const actorSort = root.querySelector<HTMLSelectElement>('[data-slot="actor-sort"]');
+  const timelineFilter = root.querySelector<HTMLSelectElement>('[data-slot="timeline-filter"]');
 
   sessionSelect?.addEventListener('change', () => {
     uiState.selectedSessionId = readOptionalString(sessionSelect.value);
     uiState.selectedActorKey = undefined;
+    uiState.selectedRuntimeEventId = undefined;
     rerender();
   });
 
   actorFilter?.addEventListener('input', () => {
     uiState.actorFilterText = actorFilter.value;
     uiState.selectedActorKey = undefined;
+    uiState.selectedRuntimeEventId = undefined;
+    rerender();
+  });
+
+  actorSort?.addEventListener('change', () => {
+    uiState.actorSort = readActorSort(actorSort.value);
+    rerender();
+  });
+
+  timelineFilter?.addEventListener('change', () => {
+    uiState.timelineFilter = readTimelineFilter(timelineFilter.value);
+    uiState.selectedRuntimeEventId = undefined;
     rerender();
   });
 
@@ -499,23 +748,51 @@ function bindDashboardControls(root: HTMLElement, uiState: LiveDashboardUiState,
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const actorCard = target.closest<HTMLElement>('[data-actor-key]');
-    if (!actorCard) return;
+    const sessionCard = target.closest<HTMLElement>('[data-session-id]');
+    if (sessionCard) {
+      uiState.selectedSessionId = readOptionalString(sessionCard.dataset.sessionId);
+      uiState.selectedActorKey = undefined;
+      uiState.selectedRuntimeEventId = undefined;
+      rerender();
+      return;
+    }
 
-    uiState.selectedActorKey = readOptionalString(actorCard.dataset.actorKey);
-    rerender();
+    const actorCard = target.closest<HTMLElement>('[data-actor-key]');
+    if (actorCard) {
+      uiState.selectedActorKey = readOptionalString(actorCard.dataset.actorKey);
+      uiState.selectedRuntimeEventId = undefined;
+      rerender();
+      return;
+    }
+
+    const timelineItem = target.closest<HTMLElement>('[data-event-id]');
+    if (timelineItem) {
+      uiState.selectedRuntimeEventId = readOptionalString(timelineItem.dataset.eventId);
+      rerender();
+    }
   });
 
   root.addEventListener('keydown', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-
     if (event.key !== 'Enter' && event.key !== ' ') return;
-    const actorCard = target.closest<HTMLElement>('[data-actor-key]');
-    if (!actorCard) return;
+
+    const interactive = target.closest<HTMLElement>('[data-session-id], [data-actor-key], [data-event-id]');
+    if (!interactive) return;
 
     event.preventDefault();
-    uiState.selectedActorKey = readOptionalString(actorCard.dataset.actorKey);
+
+    if (interactive.dataset.sessionId) {
+      uiState.selectedSessionId = readOptionalString(interactive.dataset.sessionId);
+      uiState.selectedActorKey = undefined;
+      uiState.selectedRuntimeEventId = undefined;
+    } else if (interactive.dataset.actorKey) {
+      uiState.selectedActorKey = readOptionalString(interactive.dataset.actorKey);
+      uiState.selectedRuntimeEventId = undefined;
+    } else if (interactive.dataset.eventId) {
+      uiState.selectedRuntimeEventId = readOptionalString(interactive.dataset.eventId);
+    }
+
     rerender();
   });
 }
@@ -527,6 +804,8 @@ function syncDashboardControls(
 ): void {
   const sessionSelect = root.querySelector<HTMLSelectElement>('[data-slot="session-select"]');
   const actorFilter = root.querySelector<HTMLInputElement>('[data-slot="actor-filter"]');
+  const actorSort = root.querySelector<HTMLSelectElement>('[data-slot="actor-sort"]');
+  const timelineFilter = root.querySelector<HTMLSelectElement>('[data-slot="timeline-filter"]');
 
   if (sessionSelect) {
     const options = [
@@ -546,6 +825,14 @@ function syncDashboardControls(
   if (actorFilter && actorFilter.value !== uiState.actorFilterText) {
     actorFilter.value = uiState.actorFilterText;
   }
+
+  if (actorSort && actorSort.value !== uiState.actorSort) {
+    actorSort.value = uiState.actorSort;
+  }
+
+  if (timelineFilter && timelineFilter.value !== uiState.timelineFilter) {
+    timelineFilter.value = uiState.timelineFilter;
+  }
 }
 
 function normalizeFilterText(value: string): string {
@@ -554,6 +841,32 @@ function normalizeFilterText(value: string): string {
 
 function readOptionalString(value: string | undefined): string | undefined {
   return value && value.length > 0 ? value : undefined;
+}
+
+function readActorSort(value: string): ActorSortKey {
+  switch (value) {
+    case 'name':
+      return 'name';
+    case 'activity':
+      return 'activity';
+    case 'updated':
+    default:
+      return 'updated';
+  }
+}
+
+function readTimelineFilter(value: string): TimelineFilterKind {
+  switch (value) {
+    case 'tasks':
+    case 'tools':
+    case 'messages':
+    case 'artifacts':
+    case 'system':
+      return value;
+    case 'all':
+    default:
+      return 'all';
+  }
 }
 
 function setText(root: HTMLElement, selector: string, value: string): void {
