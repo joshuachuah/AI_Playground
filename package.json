@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit false --outDir .build",
-    "test": "npm run build && node --test .build/adapters/openclaw.test.js",
+    "test": "npm run build && node --test .build/adapters/openclaw.test.js .build/live/openclaw-transport.test.js",
     "typecheck": "tsc --noEmit",
     "dev:inspect": "npm run build && node .build/dev/live-inspector.js",
     "dev:dashboard": "npm run build && node .build/dev/live-dashboard.js"
