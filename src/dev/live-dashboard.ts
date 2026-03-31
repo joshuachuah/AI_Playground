@@ -135,6 +135,13 @@ function renderHtml(): string {
         align-items: center;
         gap: 12px;
       }
+      .panel-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
       .eyebrow {
         color: var(--accent);
         text-transform: uppercase;
@@ -202,6 +209,24 @@ function renderHtml(): string {
         border-radius: 12px;
         padding: 12px 14px;
         font: inherit;
+      }
+      .action-button {
+        border: 1px solid rgba(123, 224, 214, 0.24);
+        background: rgba(123, 224, 214, 0.09);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font: inherit;
+        cursor: pointer;
+        transition: background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+      }
+      .action-button:hover:not(:disabled) {
+        background: rgba(123, 224, 214, 0.16);
+        border-color: rgba(123, 224, 214, 0.42);
+      }
+      .action-button:disabled {
+        cursor: default;
+        opacity: 0.45;
       }
       .session-rail {
         display: grid;
@@ -307,6 +332,7 @@ function renderHtml(): string {
           grid-template-columns: 1fr;
         }
         .status-card { justify-content: flex-start; }
+        .panel-actions { justify-content: flex-start; }
       }
     </style>
   </head>

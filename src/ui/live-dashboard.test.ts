@@ -107,6 +107,12 @@ test('renders selected actor details', () => {
   assert.match(html, /Writing the dashboard shell/);
 });
 
+test('renders selected actor empty state as session-wide view', () => {
+  const html = renderSelectedActor(undefined);
+
+  assert.match(html, /Session-wide state view/);
+});
+
 test('renders current state summary for the selected session', () => {
   const html = renderCurrentStateSummary(
     {
@@ -150,6 +156,12 @@ test('renders inspector summary with linked visual evidence', () => {
 
   assert.match(html, /evt-1/);
   assert.match(html, /vis-1/);
+});
+
+test('renders inspector summary empty state while browsing timeline', () => {
+  const html = renderInspectorSummary(undefined, undefined);
+
+  assert.match(html, /Browsing the live timeline/);
 });
 
 test('renders timeline with focused event state', () => {
