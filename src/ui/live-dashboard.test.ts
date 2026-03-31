@@ -479,7 +479,7 @@ test('selectDashboardState keeps session-wide timeline when actor is not explici
 
   assert.equal(selection.selectedSession?.id, 'session-2');
   assert.equal(selection.selectedActor, undefined);
-  assert.equal(selection.selectedRuntimeEvent?.id, 'evt-2');
+  assert.equal(selection.selectedRuntimeEvent, undefined);
   assert.deepEqual(selection.timelineEvents.map((event) => event.id), ['evt-1', 'evt-2']);
   assert.equal(selection.currentStateSummary.visibleActors, 2);
 });

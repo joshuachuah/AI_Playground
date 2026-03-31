@@ -541,14 +541,11 @@ function readSelectedRuntimeEvent(
   events: readonly RuntimeEvent[],
   selectedRuntimeEventId?: string,
 ): RuntimeEvent | undefined {
-  if (selectedRuntimeEventId) {
-    const explicit = events.find((event) => event.id === selectedRuntimeEventId);
-    if (explicit) {
-      return explicit;
-    }
+  if (!selectedRuntimeEventId) {
+    return undefined;
   }
 
-  return events.at(-1);
+  return events.find((event) => event.id === selectedRuntimeEventId);
 }
 
 export function readCurrentActors(
