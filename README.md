@@ -1,65 +1,91 @@
 # AI_Playground
 
-AI_Playground is a real-time 3D observability interface for AI agents.
+AI_Playground is a real-time observability interface for AI agent runtimes, currently focused on OpenClaw-first integration.
 
-Instead of forcing people to understand agent execution through logs, chat transcripts, or tool traces alone, AI_Playground turns live runtime activity into a visual world. Bots appear as entities in a shared scene, move between work zones, and expose what they are doing in a way that is easier to read, debug, and demo.
+The goal is to turn real agent and runtime activity into a truthful, readable live interface instead of forcing people to infer behavior from logs, chat transcripts, or raw tool traces alone.
 
-The current direction is **live OpenClaw-first visualization**, with **OpenAI metadata enrichment** where available.
+## Project description
 
-## What the project does
+AI_Playground is intentionally contract-first and pipeline-oriented:
 
-AI_Playground is being built to:
+1. Runtime ingestion
+2. OpenClaw adapter boundary
+3. Normalization into repo-owned `RuntimeEvent` contracts
+4. Translation into `VisualEvent` contracts
+5. Store and projection layer
+6. Browser visualization layer
 
-- visualize real AI/agent runtime activity in real time
-- map runtime events into readable visual states and movements
-- make agent workflows easier to understand and debug
-- provide a more intuitive interface for demos, monitoring, and experimentation
-- show what is happening now without pretending the system is doing something it is not
+The product stance is:
 
-In practical terms, the project is aiming for a flow like this:
+- truthful abstraction over theatrical animation
+- readable current state over raw trace overload
+- repo-owned contracts over provider-coupled UI logic
+- live OpenClaw integration before broader provider coverage
 
-1. OpenClaw runs a real task
-2. runtime events are captured and normalized
-3. those events are translated into scene-friendly visual events
-4. the browser renders entities, status, and timeline updates live
-5. the UI shows extra metadata such as model/provider/tool context when available
+## What is implemented
 
-## Product philosophy
+The repository already includes the current live-pipeline foundation:
 
-AI_Playground is **not** intended to be a fake animation demo or a game.
+- a TypeScript, contract-first architecture
+- repo-owned runtime event contracts and visual event contracts
+- an explicit OpenClaw adapter boundary
+- a default OpenClaw event normalizer that maps loose OpenClaw-style input into typed `RuntimeEvent` values
+- OpenClaw-specific SSE, WebSocket, and in-memory transports that normalize raw OpenClaw envelopes before they enter the app and store pipeline
+- stricter transport error handling so invalid raw OpenClaw events surface errors instead of failing silently
+- expanded runtime-to-visual translation coverage for session events, task start/progress/completion/failure, tool start/completion/failure, message handoff events, artifact events, warnings, and errors
+- a runtime visual store that keeps both raw buffers and derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
+- actor projections that are session-scoped, remove actors on `actor.removed`, preserve role and kind across sparse events, and clear active tools on task failure
+- a lightweight, framework-free local browser dashboard that shows connection state, runtime and visual event counts, warning and error counts, session snapshot, active actors for the current session, event timeline, latest event inspector, and last error
+- a built-in test suite covering normalization, transports, translator behavior, store projections, and dashboard rendering helpers
 
-The goal is:
-- **truthful abstraction**, not spectacle
-- **observability**, not roleplay
-- **clarity**, not noisy literal playback
+## What is left to build
 
-That means the system should summarize runtime behavior honestly:
-- if an agent is waiting, it should look like waiting
-- if a tool failed, that failure should be visible
-- if a model response completed, the UI should reflect that terminal state correctly
+The main remaining gaps are productizing the current foundation:
 
-## Current architecture direction
+- real end-to-end OpenClaw integration against an upstream runtime or daemon instead of only local fixture-backed previews
+- a production-grade live endpoint and a realistic local developer flow for OpenClaw
+- richer browser controls for filtering, sorting, actor and session selection, and better inspection workflows
+- replay and history support for previous runs
+- stronger state-machine behavior to stabilize visual state under noisy real streams
+- a real scene, spatial, or 3D observability layer
+- better multi-agent orchestration UX beyond basic handoff and state representation
+- broader provider integrations beyond OpenClaw
 
-The repo is structured around a few core layers:
+## Implementation plan
 
-### 1. Runtime ingestion
-Accept raw or semi-structured runtime signals from OpenClaw-oriented sources.
+### Phase 1: Real OpenClaw event pipeline
 
-### 2. Adapter boundary
-Isolate OpenClaw-specific event ingestion behind a dedicated interface.
+- connect to a real OpenClaw source
+- wire a real SSE and WebSocket path
+- validate and harden ingestion and normalization against real upstream behavior
+- document a reliable local end-to-end run flow
 
-### 3. Normalization
-Transform OpenClaw-shaped payloads into the repo-owned runtime event contract.
+### Phase 2: Usable browser product
 
-### 4. Translation
-Map runtime events into visual events that a scene/UI can render clearly.
+- upgrade the browser UI into a practical observability dashboard
+- add session and actor filtering plus explicit selection
+- improve inspector and detail workflows
+- make derived current-state views central to the UI
 
-### 5. Visualization client
-A future browser client will render:
-- scene zones
-- runtime entities/bots
-- live activity states
-- timeline/details panels
+### Phase 3: State quality and replay
+
+- strengthen translator, store, and state-machine behavior
+- add replay and history for completed runs
+- stabilize event-to-visual behavior under realistic stream conditions
+- reduce ambiguity and stale state in projections
+
+### Phase 4: Product identity layer
+
+- add a spatial or scene-based observability experience
+- keep the visualization truthful rather than theatrical
+- improve multi-agent coordination UX
+- synchronize scene, inspector, and timeline views cleanly
+
+## Highest-leverage next PR
+
+The single highest-leverage next PR-sized feature is a real OpenClaw live endpoint plus a documented local end-to-end dev flow.
+
+That slice unlocks the rest of the roadmap because it replaces fixture-backed confidence with real-stream confidence. It is also the shortest path to learning where the current normalizer, translator, store projections, and dashboard assumptions break under actual upstream conditions.
 
 ## Current repository structure
 
@@ -98,37 +124,6 @@ A future browser client will render:
 └─ README.md
 ```
 
-## What exists right now
-
-The project currently includes the engineering foundation for the live MVP:
-
-- an explicit OpenClaw adapter boundary for normalization work
-- a repo-owned runtime event contract
-- a visual event contract
-- a runtime-to-visual translator layer
-- a protocol-agnostic live transport interface with SSE, WebSocket, and local async-stream adapters
-- a lightweight state/projection store for connection status + runtime/visual event buffers
-- a minimal app/client shell wiring transport → translator → store
-- an app boot wrapper for explicit start/stop lifecycle wiring
-- developer-facing local preview flows, including a runnable live inspector
-- architecture documentation for the live MVP
-
-This is intentionally foundation-first. The goal was to lock in the event model and translation seam before investing in UI and rendering work.
-The new adapter seam keeps upstream-specific parsing isolated so later OpenClaw payload work can evolve without bleeding into the browser/store code.
-
-## What does not exist yet
-
-Not built yet:
-
-- the full frontend app
-- the 3D scene
-- live browser transport/wiring
-- real-time OpenClaw stream integration end-to-end
-- replay/history UI
-- multi-agent scene orchestration
-
-Those come after the event pipeline is solid.
-
 ## Why the repo is still lightweight
 
 The highest-leverage work early on is not graphics boilerplate.
@@ -140,22 +135,6 @@ It is:
 - preventing the UI from becoming misleading later
 
 That is why the repository currently focuses more on contracts, ingestion, and translation than on framework-heavy frontend setup.
-
-## Near-term roadmap
-
-### Done
-- define runtime event contract
-- define visual event contract
-- establish translation layer
-- add normalization layer for OpenClaw-style events
-- add validation for key normalization/translation paths
-
-### Next
-- build live transport from runtime to browser
-- scaffold the frontend shell
-- render timeline/details UI
-- introduce scene zones and entity state rendering
-- connect the live event pipeline to the UI
 
 ## Tech direction
 
