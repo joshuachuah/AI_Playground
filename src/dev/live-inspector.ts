@@ -1,15 +1,18 @@
 import { bootLiveClientApp } from '../app/boot.js';
-import {
-  LocalRuntimeEventSourceTransport,
-  createIntervalRuntimeEventSource,
-} from '../live/local-runtime-event-source.js';
 import type { RuntimeVisualState } from '../state/runtime-visual-store.js';
-import { sampleRuntimeEvents } from './sample-runtime-events.js';
+import { describeOpenClawDevConnection, createNodeOpenClawDevTransport } from './openclaw-dev-transport.js';
+import { readOpenClawDevConnectionConfigFromEnv } from './openclaw-dev-config.js';
 
 export async function runLocalLiveInspector(): Promise<void> {
-  const transport = new LocalRuntimeEventSourceTransport({
-    source: createIntervalRuntimeEventSource(sampleRuntimeEvents, { intervalMs: 300 }),
-  });
+  const { config, warnings } = readOpenClawDevConnectionConfigFromEnv(process.env);
+
+  for (const warning of warnings) {
+    console.warn(`[live-inspector] ${warning}`);
+  }
+
+  console.log(`[live-inspector] source: ${describeOpenClawDevConnection(config)}`);
+
+  const transport = createNodeOpenClawDevTransport(config);
 
   const app = bootLiveClientApp({ transport });
   let previousRuntimeEventCount = 0;
@@ -21,7 +24,11 @@ export async function runLocalLiveInspector(): Promise<void> {
 
   try {
     await app.start();
-    await waitForCompletion(app.store, 6000);
+    if (config.mode === 'fixture') {
+      await waitForCompletion(app.store, 6000);
+    } else {
+      await waitForInterruptOrDisconnect(app.store);
+    }
   } finally {
     await app.stop();
     unsubscribe();
@@ -95,6 +102,34 @@ async function waitForCompletion(store: { getSnapshot(): Readonly<RuntimeVisualS
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
+  });
+}
+
+async function waitForInterruptOrDisconnect(store: { getSnapshot(): Readonly<RuntimeVisualState> }): Promise<void> {
+  console.log('[live-inspector] streaming live events. Press Ctrl+C to stop.');
+
+  await new Promise<void>((resolve) => {
+    const onSignal = () => {
+      process.removeListener('SIGINT', onSignal);
+      resolve();
+    };
+
+    process.once('SIGINT', onSignal);
+
+    const poll = async () => {
+      while (true) {
+        const snapshot = store.getSnapshot();
+        if (snapshot.connectionStatus === 'disconnected' || snapshot.connectionStatus === 'error') {
+          process.removeListener('SIGINT', onSignal);
+          resolve();
+          return;
+        }
+
+        await sleep(200);
+      }
+    };
+
+    void poll();
   });
 }
 
