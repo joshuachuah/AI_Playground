@@ -54,6 +54,7 @@ export async function runLocalLiveDashboardServer(port = DEFAULT_PORT): Promise<
 
 function renderHtml(): string {
   const { config } = readOpenClawDevConnectionConfigFromEnv(process.env);
+  const serializedConfig = JSON.stringify(config).replaceAll('</script>', '<\\/script>');
 
   return `<!doctype html>
 <html lang="en">
@@ -187,7 +188,7 @@ function renderHtml(): string {
   <body>
     <div id="app"></div>
     <script>
-      window.__AI_PLAYGROUND_OPENCLAW__ = ${JSON.stringify(config)};
+      window.__AI_PLAYGROUND_OPENCLAW__ = ${serializedConfig};
     </script>
     <script type="module" src="/assets/ui/live-dashboard.js"></script>
   </body>

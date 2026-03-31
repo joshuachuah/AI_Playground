@@ -31,3 +31,12 @@ test('falls back to fixture mode when ws mode is missing a URL', () => {
   assert.deepEqual(result.config, { mode: 'fixture' });
   assert.match(result.warnings[0] ?? '', /OPENCLAW_TRANSPORT=ws/);
 });
+
+test('warns when an unsupported transport mode is configured', () => {
+  const result = readOpenClawDevConnectionConfigFromEnv({
+    OPENCLAW_TRANSPORT: 'ssee',
+  });
+
+  assert.deepEqual(result.config, { mode: 'fixture' });
+  assert.match(result.warnings[0] ?? '', /Unsupported OPENCLAW_TRANSPORT=ssee/);
+});

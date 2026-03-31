@@ -18,14 +18,17 @@ const DEFAULT_FIXTURE_CONFIG: OpenClawDevConnectionConfig = {
 export function readOpenClawDevConnectionConfigFromEnv(
   env: Record<string, string | undefined>,
 ): ReadOpenClawDevConnectionConfigResult {
-  const mode = normalizeMode(env.OPENCLAW_TRANSPORT ?? env.AI_PLAYGROUND_OPENCLAW_TRANSPORT);
+  const requestedMode = env.OPENCLAW_TRANSPORT ?? env.AI_PLAYGROUND_OPENCLAW_TRANSPORT;
+  const mode = normalizeMode(requestedMode);
   const sseUrl = readNonEmptyString(env.OPENCLAW_SSE_URL ?? env.AI_PLAYGROUND_OPENCLAW_SSE_URL);
   const wsUrl = readNonEmptyString(env.OPENCLAW_WS_URL ?? env.AI_PLAYGROUND_OPENCLAW_WS_URL);
 
   if (!mode) {
     return {
       config: DEFAULT_FIXTURE_CONFIG,
-      warnings: [],
+      warnings: requestedMode
+        ? [`Unsupported OPENCLAW_TRANSPORT=${requestedMode}, falling back to fixture mode.`]
+        : [],
     };
   }
 
@@ -43,6 +46,7 @@ export function readOpenClawDevConnectionConfig(
   }
 
   const record = value as Record<string, unknown>;
+  const requestedMode = readNonEmptyString(record.mode);
   const mode = normalizeMode(record.mode);
   const sseUrl = readNonEmptyString(record.sseUrl);
   const wsUrl = readNonEmptyString(record.wsUrl);
@@ -50,7 +54,9 @@ export function readOpenClawDevConnectionConfig(
   if (!mode) {
     return {
       config: DEFAULT_FIXTURE_CONFIG,
-      warnings: [],
+      warnings: requestedMode
+        ? [`Unsupported OpenClaw dev mode ${requestedMode}, falling back to fixture mode.`]
+        : [],
     };
   }
 
@@ -81,7 +87,7 @@ function finalizeConfig(config: OpenClawDevConnectionConfig): ReadOpenClawDevCon
     case 'ws':
       if (config.wsUrl) {
         return {
-          config,
+          config: compactConfig(config),
           warnings: [],
         };
       }
