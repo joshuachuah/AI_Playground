@@ -254,6 +254,56 @@ test('keeps actor projections isolated across sessions', () => {
   assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-2', 'shared-actor')].name, 'Willy clone');
 });
 
+test('preserves actor role and kind when later events omit optional actor metadata', () => {
+  const store = new RuntimeVisualStore({
+    translator: new OpenClawRuntimeTranslator(),
+  });
+
+  const actorSpawned: RuntimeEvent<'actor.spawned'> = {
+    id: 'evt-actor-spawned',
+    timestamp: '2026-03-31T18:25:00.000Z',
+    sessionId: 'session-keep-metadata',
+    source: 'openclaw.runtime',
+    kind: 'actor.spawned',
+    actor: {
+      id: 'agent-metadata',
+      name: 'Willy',
+      role: 'implementation',
+      kind: 'agent',
+    },
+    payload: {
+      status: 'spawned',
+      summary: 'Actor joined',
+    },
+  };
+
+  const taskStarted: RuntimeEvent<'task.started'> = {
+    id: 'evt-task-started',
+    timestamp: '2026-03-31T18:25:01.000Z',
+    sessionId: 'session-keep-metadata',
+    source: 'openclaw.runtime',
+    kind: 'task.started',
+    actor: {
+      id: 'agent-metadata',
+      name: 'Willy',
+    },
+    payload: {
+      taskId: 'task-1',
+      title: 'Implement dashboard',
+      status: 'started',
+      summary: 'Starting work',
+    },
+  };
+
+  store.ingestRuntimeEvent(actorSpawned);
+  store.ingestRuntimeEvent(taskStarted);
+
+  const actor = store.getSnapshot().actorsById[createRuntimeVisualActorKey('session-keep-metadata', 'agent-metadata')];
+
+  assert.equal(actor.role, 'implementation');
+  assert.equal(actor.kind, 'agent');
+});
+
 test('removes actor projections when actors leave the session', () => {
   const store = new RuntimeVisualStore({
     translator: new OpenClawRuntimeTranslator(),
@@ -298,4 +348,55 @@ test('removes actor projections when actors leave the session', () => {
 
   assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-3', 'agent-3')], undefined);
   assert.deepEqual(snapshot.sessionsById['session-3'].actorIds, []);
+});
+
+test('clears active tools when a task fails', () => {
+  const store = new RuntimeVisualStore({
+    translator: new OpenClawRuntimeTranslator(),
+  });
+
+  const toolStarted: RuntimeEvent<'tool.started'> = {
+    id: 'evt-tool-started',
+    timestamp: '2026-03-31T18:35:00.000Z',
+    sessionId: 'session-4',
+    source: 'openclaw.tooling',
+    kind: 'tool.started',
+    actor: {
+      id: 'agent-4',
+      name: 'Nick',
+    },
+    payload: {
+      tool: {
+        name: 'write',
+      },
+      status: 'started',
+      inputSummary: 'Writing review notes',
+    },
+  };
+
+  const taskFailed: RuntimeEvent<'task.failed'> = {
+    id: 'evt-task-failed',
+    timestamp: '2026-03-31T18:35:01.000Z',
+    sessionId: 'session-4',
+    source: 'openclaw.runtime',
+    kind: 'task.failed',
+    actor: {
+      id: 'agent-4',
+      name: 'Nick',
+    },
+    payload: {
+      taskId: 'task-4',
+      title: 'Review output',
+      status: 'failed',
+      summary: 'Validation failed',
+    },
+  };
+
+  store.ingestRuntimeEvent(toolStarted);
+  store.ingestRuntimeEvent(taskFailed);
+
+  const actor = store.getSnapshot().actorsById[createRuntimeVisualActorKey('session-4', 'agent-4')];
+
+  assert.equal(actor.currentToolName, undefined);
+  assert.equal(actor.currentActivity, 'error');
 });

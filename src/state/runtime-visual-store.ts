@@ -168,8 +168,8 @@ function deriveActorsById(
   const next: RuntimeVisualActorProjection = {
     id: actor.id,
     name: actor.name,
-    role: actor.role,
-    kind: actor.kind,
+    role: actor.role ?? current?.role,
+    kind: actor.kind ?? current?.kind,
     sessionId: runtimeEvent.sessionId,
     currentTaskId: current?.currentTaskId,
     currentTaskTitle: current?.currentTaskTitle,
@@ -263,6 +263,7 @@ function applyRuntimeActorProjection(actor: RuntimeVisualActorProjection, event:
       const payload = event.payload as { summary?: string };
       actor.currentTaskId = undefined;
       actor.currentTaskTitle = undefined;
+      actor.currentToolName = undefined;
       actor.lastSummary = payload.summary ?? actor.lastSummary;
       actor.lastError = payload.summary ?? actor.lastError;
       return;
