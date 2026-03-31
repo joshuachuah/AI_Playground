@@ -762,7 +762,6 @@ function bindDashboardControls(root: HTMLElement, uiState: LiveDashboardUiState,
       switch (actionButton.dataset.action) {
         case 'clear-actor-focus':
           uiState.selectedActorKey = undefined;
-          uiState.selectedRuntimeEventId = undefined;
           rerender();
           return;
         case 'clear-event-focus':
