@@ -84,7 +84,7 @@ function renderHtml(): string {
         align-items: stretch;
         margin-bottom: 16px;
       }
-      .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 16px; }
+      .stats-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 16px; }
       .main-grid { grid-template-columns: minmax(340px, 0.9fr) minmax(420px, 1.1fr); margin-bottom: 16px; }
       .footer-grid { grid-template-columns: 1fr; }
       .panel, .status-card {
@@ -136,6 +136,27 @@ function renderHtml(): string {
       dt { font-size: 12px; margin-bottom: 6px; }
       dd { margin: 0; font-weight: 600; }
       .inspector-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .actor-grid { display: grid; gap: 12px; }
+      .actor-card {
+        padding: 14px;
+        border-radius: 12px;
+        background: var(--panel-2);
+        border: 1px solid rgba(255,255,255,0.05);
+      }
+      .actor-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .actor-name { font-size: 16px; font-weight: 700; }
+      .actor-meta, .actor-detail { color: var(--muted); }
+      .actor-meta, .actor-status { font-size: 12px; }
+      .actor-status {
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
       pre {
         margin: 0;
         padding: 14px;

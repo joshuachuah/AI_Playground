@@ -2,7 +2,11 @@ import { bootLiveClientApp } from '../app/boot.js';
 import { LocalRuntimeEventSourceTransport, createIntervalRuntimeEventSource } from '../live/local-runtime-event-source.js';
 import type { RuntimeEvent } from '../contracts/runtime-events.js';
 import type { VisualEvent } from '../contracts/visual-events.js';
-import type { RuntimeVisualState } from '../state/runtime-visual-store.js';
+import type {
+  RuntimeVisualActorProjection,
+  RuntimeVisualSessionProjection,
+  RuntimeVisualState,
+} from '../state/runtime-visual-store.js';
 import { sampleRuntimeEvents } from '../dev/sample-runtime-events.js';
 
 const TIMELINE_LIMIT = 12;
@@ -28,17 +32,23 @@ export async function mountLocalLiveDashboard(root: HTMLElement): Promise<() => 
 }
 
 function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>): void {
+  const currentSession = readCurrentSession(state);
+  const currentActors = readCurrentActors(state, currentSession);
+
   setText(root, '[data-slot="connection-status"]', state.connectionStatus);
   setText(root, '[data-slot="runtime-count"]', String(state.runtimeEvents.length));
   setText(root, '[data-slot="visual-count"]', String(state.visualEvents.length));
   setText(root, '[data-slot="error-count"]', String(countErrors(state.runtimeEvents)));
   setText(root, '[data-slot="warning-count"]', String(countWarnings(state.runtimeEvents)));
+  setText(root, '[data-slot="actor-count"]', String(currentActors.length));
   setText(root, '[data-slot="last-error"]', state.lastError ?? 'none');
 
   const latestRuntimeEvent = state.runtimeEvents.at(-1);
   const latestVisualEvent = state.visualEvents.at(-1);
 
   setHtml(root, '[data-slot="timeline"]', renderTimeline(state.runtimeEvents));
+  setHtml(root, '[data-slot="session-summary"]', renderSessionSummary(currentSession));
+  setHtml(root, '[data-slot="actor-cards"]', renderActorCards(currentActors));
   setText(root, '[data-slot="latest-runtime-kind"]', latestRuntimeEvent?.kind ?? 'none');
   setText(root, '[data-slot="latest-runtime-source"]', latestRuntimeEvent?.source ?? 'none');
   setText(root, '[data-slot="latest-runtime-actor"]', latestRuntimeEvent?.actor?.name ?? 'none');
@@ -88,8 +98,27 @@ function renderShell(): string {
       <section class="grid stats-grid">
         <article class="panel stat-panel"><div class="label">Runtime events</div><div class="value" data-slot="runtime-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Visual events</div><div class="value" data-slot="visual-count">0</div></article>
+        <article class="panel stat-panel"><div class="label">Active actors</div><div class="value" data-slot="actor-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Warnings</div><div class="value" data-slot="warning-count">0</div></article>
         <article class="panel stat-panel"><div class="label">Errors</div><div class="value" data-slot="error-count">0</div></article>
+      </section>
+
+      <section class="grid main-grid">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Session snapshot</h2>
+            <span class="subtle">derived state</span>
+          </div>
+          <div data-slot="session-summary"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Active actors</h2>
+            <span class="subtle">current projections</span>
+          </div>
+          <div class="actor-grid" data-slot="actor-cards"></div>
+        </article>
       </section>
 
       <section class="grid main-grid">
@@ -136,6 +165,47 @@ function renderShell(): string {
       </section>
     </div>
   `;
+}
+
+export function renderSessionSummary(session: RuntimeVisualSessionProjection | undefined): string {
+  if (!session) {
+    return '<p class="empty">Waiting for session state…</p>';
+  }
+
+  return `
+    <dl class="key-values">
+      <div><dt>Session</dt><dd>${escapeHtml(session.id)}</dd></div>
+      <div><dt>Status</dt><dd>${escapeHtml(session.status ?? 'unknown')}</dd></div>
+      <div><dt>Title</dt><dd>${escapeHtml(session.title ?? 'none')}</dd></div>
+      <div><dt>Actors</dt><dd>${escapeHtml(String(session.actorIds.length))}</dd></div>
+      <div><dt>Goal</dt><dd>${escapeHtml(session.goal ?? 'none')}</dd></div>
+      <div><dt>Latest summary</dt><dd>${escapeHtml(session.latestSummary ?? 'none')}</dd></div>
+    </dl>
+  `;
+}
+
+export function renderActorCards(actors: readonly RuntimeVisualActorProjection[]): string {
+  if (actors.length === 0) {
+    return '<p class="empty">Waiting for actor state…</p>';
+  }
+
+  return actors
+    .map((actor) => {
+      const meta = [actor.role, actor.currentZone, actor.currentActivity].filter(Boolean).join(' · ');
+      return `
+        <article class="actor-card">
+          <div class="actor-top">
+            <div>
+              <div class="actor-name">${escapeHtml(actor.name)}</div>
+              <div class="actor-meta">${escapeHtml(meta || actor.sessionId)}</div>
+            </div>
+            <div class="actor-status">${escapeHtml(actor.currentToolName ?? actor.currentTaskTitle ?? 'idle')}</div>
+          </div>
+          <div class="actor-detail">${escapeHtml(actor.lastSummary ?? 'No summary yet')}</div>
+        </article>
+      `;
+    })
+    .join('');
 }
 
 function renderTimeline(events: readonly RuntimeEvent[]): string {
@@ -189,6 +259,28 @@ function countErrors(events: readonly RuntimeEvent[]): number {
   return events.filter((event) => event.kind === 'error' || event.kind.endsWith('.failed')).length;
 }
 
+function readCurrentSession(state: Readonly<RuntimeVisualState>): RuntimeVisualSessionProjection | undefined {
+  const latestRuntimeEvent = state.runtimeEvents.at(-1);
+  if (latestRuntimeEvent) {
+    return state.sessionsById[latestRuntimeEvent.sessionId];
+  }
+
+  return Object.values(state.sessionsById)
+    .sort((left, right) => (right.updatedAt ?? '').localeCompare(left.updatedAt ?? ''))
+    .at(0);
+}
+
+export function readCurrentActors(
+  state: Readonly<RuntimeVisualState>,
+  session: RuntimeVisualSessionProjection | undefined,
+): RuntimeVisualActorProjection[] {
+  const actors = Object.values(state.actorsById);
+
+  return actors
+    .filter((actor) => !session || actor.sessionId === session.id)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
 function setText(root: HTMLElement, selector: string, value: string): void {
   const element = root.querySelector<HTMLElement>(selector);
   if (element) element.textContent = value;
@@ -216,8 +308,10 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-const root = document.querySelector<HTMLElement>('#app');
+if (typeof document !== 'undefined') {
+  const root = document.querySelector<HTMLElement>('#app');
 
-if (root) {
-  void mountLocalLiveDashboard(root);
+  if (root) {
+    void mountLocalLiveDashboard(root);
+  }
 }
