@@ -45,11 +45,11 @@ The repo is structured around a few core layers:
 ### 1. Runtime ingestion
 Accept raw or semi-structured runtime signals from OpenClaw-oriented sources.
 
-### 2. Adapter + normalization
-Use an OpenClaw-specific adapter boundary to convert upstream payloads into repo-owned runtime events.
+### 2. Adapter boundary
+Isolate OpenClaw-specific event ingestion behind a dedicated interface.
 
 ### 3. Normalization
-Convert upstream payloads into a repo-owned runtime event contract.
+Transform OpenClaw-shaped payloads into the repo-owned runtime event contract.
 
 ### 4. Translation
 Map runtime events into visual events that a scene/UI can render clearly.
