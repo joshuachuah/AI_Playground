@@ -26,7 +26,7 @@ The implementation is intentionally contract-first and pipeline-oriented:
 - runtime-to-visual translation coverage for session, task, tool, handoff, artifact, warning, and error events
 - runtime visual store with raw buffers plus derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
 - session-scoped actor projections that preserve sparse identity fields, remove actors on `actor.removed`, and clear active tools on task failure
-- lightweight framework-free browser dashboard showing connection state, counts, warnings and errors, session snapshot, active actors, timeline, latest event inspector, and last error
+- lightweight framework-free browser dashboard showing connection state, counts, warnings and errors, session snapshot, session selection, actor filtering and selection, active actor detail, timeline, latest event inspector, and last error
 - test coverage for normalization, transports, translator behavior, store projections, and dashboard rendering helpers
 
 ### What is left to build

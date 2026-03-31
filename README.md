@@ -35,7 +35,7 @@ The repository already includes the current live-pipeline foundation:
 - expanded runtime-to-visual translation coverage for session events, task start/progress/completion/failure, tool start/completion/failure, message handoff events, artifact events, warnings, and errors
 - a runtime visual store that keeps both raw buffers and derived projections for `runtimeEvents`, `visualEvents`, `actorsById`, and `sessionsById`
 - actor projections that are session-scoped, remove actors on `actor.removed`, preserve role and kind across sparse events, and clear active tools on task failure
-- a lightweight, framework-free local browser dashboard that shows connection state, runtime and visual event counts, warning and error counts, session snapshot, active actors for the current session, event timeline, latest event inspector, and last error
+- a lightweight, framework-free local browser dashboard that shows connection state, runtime and visual event counts, warning and error counts, session snapshot, session selection, actor filtering and selection, active actor detail, event timeline, latest event inspector, and last error
 - a built-in test suite covering normalization, transports, translator behavior, store projections, and dashboard rendering helpers
 
 ## What is left to build
