@@ -153,6 +153,89 @@ test('uses the received timestamp fallback and supports model response payloads'
   });
 });
 
+test('uses payload-level OpenAI metadata for model response payload correlation', () => {
+  const normalizer = createDefaultOpenClawEventNormalizer();
+
+  const event = normalizer.normalize({
+    id: 'evt-model-created',
+    timestamp: '2026-03-31T08:02:30.000Z',
+    sessionId: 'session-123',
+    kind: 'model.response.created',
+    payload: {
+      summary: 'Model response created',
+      openai: {
+        responseId: 'resp_from_payload',
+        model: 'gpt-5.4',
+      },
+    },
+  });
+
+  assert.deepEqual(event, {
+    id: 'evt-model-created',
+    timestamp: '2026-03-31T08:02:30.000Z',
+    sessionId: 'session-123',
+    source: 'openai.responses',
+    kind: 'model.response.created',
+    actor: undefined,
+    openai: {
+      provider: 'openai',
+      model: 'gpt-5.4',
+      responseId: 'resp_from_payload',
+      requestId: undefined,
+      conversationId: undefined,
+      usage: undefined,
+      finishReason: undefined,
+    },
+    payload: {
+      responseId: 'resp_from_payload',
+      status: 'created',
+      summary: 'Model response created',
+    },
+  });
+});
+
+test('falls back to top-level tool data when payload tool ref is partial', () => {
+  const normalizer = createDefaultOpenClawEventNormalizer();
+
+  const event = normalizer.normalize({
+    id: 'evt-tool-partial',
+    timestamp: '2026-03-31T08:03:00.000Z',
+    sessionId: 'session-123',
+    kind: 'tool.started',
+    tool: {
+      name: 'write',
+      invocationId: 'inv-top-level',
+      displayName: 'Write File',
+    },
+    payload: {
+      tool: {
+        invocationId: 'inv-payload',
+      },
+      inputSummary: 'Write src/index.ts',
+    },
+  });
+
+  assert.deepEqual(event, {
+    id: 'evt-tool-partial',
+    timestamp: '2026-03-31T08:03:00.000Z',
+    sessionId: 'session-123',
+    source: 'openclaw.tooling',
+    kind: 'tool.started',
+    actor: undefined,
+    openai: undefined,
+    payload: {
+      tool: {
+        name: 'write',
+        invocationId: 'inv-payload',
+        displayName: 'Write File',
+      },
+      inputSummary: 'Write src/index.ts',
+      outputSummary: undefined,
+      status: 'started',
+    },
+  });
+});
+
 test('returns null for unsupported event kinds', () => {
   const normalizer = createDefaultOpenClawEventNormalizer();
 
@@ -168,6 +251,43 @@ test('returns null for unsupported event kinds', () => {
 });
 
 test('throws when a required identity field is missing', () => {
+  const normalizer = createDefaultOpenClawEventNormalizer();
+
+  assert.throws(
+    () =>
+      normalizer.normalize({
+        id: 123 as unknown as string,
+        timestamp: '2026-03-31T08:04:00.000Z',
+        sessionId: 'session-123',
+        kind: 'task.started',
+        payload: {
+          title: 'Missing task id',
+        },
+      }),
+    /Missing OpenClaw event id/,
+  );
+});
+
+test('throws when a top-level string field is malformed', () => {
+  const normalizer = createDefaultOpenClawEventNormalizer();
+
+  assert.throws(
+    () =>
+      normalizer.normalize({
+        id: 'evt-malformed-timestamp',
+        timestamp: 123 as unknown as string,
+        sessionId: 'session-123',
+        kind: 'task.started',
+        payload: {
+          taskId: 'task-1',
+          title: 'Malformed timestamp',
+        },
+      }),
+    /Missing OpenClaw event timestamp/,
+  );
+});
+
+test('throws when a required task identity field is missing', () => {
   const normalizer = createDefaultOpenClawEventNormalizer();
 
   assert.throws(

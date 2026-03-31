@@ -112,19 +112,21 @@ export class DefaultOpenClawEventNormalizer implements OpenClawEventNormalizer {
     if (!kind) return null;
 
     const payload = readRecord(envelope.payload);
+    const openai = envelope.openai ?? readNestedRecord(payload, 'openai');
 
     return {
-      id: requireString(envelope.id, 'OpenClaw event id'),
-      timestamp: readString(envelope.timestamp) ?? requireString(context.receivedAt, 'OpenClaw event timestamp'),
+      id: requireNonEmptyString(envelope.id, 'OpenClaw event id'),
+      timestamp:
+        readString(envelope.timestamp) ?? requireNonEmptyString(context.receivedAt, 'OpenClaw event timestamp'),
       sessionId:
         readString(envelope.sessionId) ??
         readString(payload?.sessionId) ??
-        requireString(readString(readNestedRecord(payload, 'session')?.id), 'OpenClaw session id'),
+        requireNonEmptyString(readString(readNestedRecord(payload, 'session')?.id), 'OpenClaw session id'),
       source: normalizeSource(envelope.source, context.defaultSource, kind),
       kind,
       actor: normalizeActor(envelope.actor ?? readNestedRecord(payload, 'actor')),
-      openai: normalizeOpenAI(envelope.openai ?? readNestedRecord(payload, 'openai')),
-      payload: normalizePayload(kind, envelope, payload),
+      openai: normalizeOpenAI(openai),
+      payload: normalizePayload(kind, envelope, payload, openai),
     };
   }
 }
@@ -148,6 +150,7 @@ function normalizePayload<TKind extends RuntimeEventKind>(
   kind: TKind,
   envelope: OpenClawRawEventEnvelope,
   payload: Record<string, unknown> | null,
+  openai: unknown,
 ): RuntimeEventPayloadByKind[TKind] {
   switch (kind) {
     case 'session.started':
@@ -184,7 +187,7 @@ function normalizePayload<TKind extends RuntimeEventKind>(
     case 'model.response.created':
     case 'model.response.delta':
     case 'model.response.completed':
-      return normalizeModelResponsePayload(kind, payload, envelope.openai) as RuntimeEventPayloadByKind[TKind];
+      return normalizeModelResponsePayload(kind, payload, openai) as RuntimeEventPayloadByKind[TKind];
 
     case 'warning':
     case 'error':
@@ -218,17 +221,29 @@ function normalizeTaskPayload(
   envelope: OpenClawRawEventEnvelope,
   payload: Record<string, unknown> | null,
 ) {
-  const task = readNestedRecord(payload, 'task') ?? readNestedRecord(envelope as Record<string, unknown>, 'task');
+  const payloadTask = readNestedRecord(payload, 'task');
+  const envelopeTask = readNestedRecord(envelope as Record<string, unknown>, 'task');
   const taskId =
-    readString(payload?.taskId) ?? readString(payload?.id) ?? readString(task?.id) ?? fail('OpenClaw task id');
+    readString(payload?.taskId) ??
+    readString(payload?.id) ??
+    readString(payloadTask?.id) ??
+    readString(envelopeTask?.id) ??
+    fail('OpenClaw task id');
   const title =
-    readString(payload?.title) ?? readString(task?.title) ?? readString(payload?.summary) ?? `Task ${taskId}`;
+    readString(payload?.title) ??
+    readString(payloadTask?.title) ??
+    readString(envelopeTask?.title) ??
+    readString(payload?.summary) ??
+    `Task ${taskId}`;
 
   return {
     taskId,
     title,
     status: readTaskStatus(payload?.status) ?? inferTaskStatus(kind),
-    parentTaskId: readString(payload?.parentTaskId) ?? readString(task?.parentTaskId),
+    parentTaskId:
+      readString(payload?.parentTaskId) ??
+      readString(payloadTask?.parentTaskId) ??
+      readString(envelopeTask?.parentTaskId),
     progress: readNumber(payload?.progress),
     summary: readString(payload?.summary),
   };
@@ -239,15 +254,24 @@ function normalizeToolPayload(
   envelope: OpenClawRawEventEnvelope,
   payload: Record<string, unknown> | null,
 ) {
-  const rawTool = readNestedRecord(payload, 'tool') ?? readRecord(envelope.tool);
+  const payloadTool = readNestedRecord(payload, 'tool');
+  const envelopeTool = readRecord(envelope.tool);
   const name =
-    readString(rawTool?.name) ?? readString(payload?.toolName) ?? readString(rawTool?.displayName) ?? fail('OpenClaw tool name');
+    readString(payloadTool?.name) ??
+    readString(envelopeTool?.name) ??
+    readString(payload?.toolName) ??
+    readString(payloadTool?.displayName) ??
+    readString(envelopeTool?.displayName) ??
+    fail('OpenClaw tool name');
 
   return {
     tool: {
       name,
-      invocationId: readString(rawTool?.invocationId) ?? readString(payload?.invocationId),
-      displayName: readString(rawTool?.displayName),
+      invocationId:
+        readString(payloadTool?.invocationId) ??
+        readString(envelopeTool?.invocationId) ??
+        readString(payload?.invocationId),
+      displayName: readString(payloadTool?.displayName) ?? readString(envelopeTool?.displayName),
     },
     inputSummary: readString(payload?.inputSummary),
     outputSummary: readString(payload?.outputSummary),
@@ -270,16 +294,25 @@ function normalizeMessagePayload(payload: Record<string, unknown> | null) {
 }
 
 function normalizeArtifactPayload(envelope: OpenClawRawEventEnvelope, payload: Record<string, unknown> | null) {
-  const artifact = readNestedRecord(payload, 'artifact') ?? readRecord(envelope.artifact);
-  const id = readString(artifact?.id) ?? readString(payload?.artifactId) ?? fail('OpenClaw artifact id');
-  const type = readString(artifact?.type) ?? readString(payload?.type) ?? fail('OpenClaw artifact type');
+  const payloadArtifact = readNestedRecord(payload, 'artifact');
+  const envelopeArtifact = readRecord(envelope.artifact);
+  const id =
+    readString(payloadArtifact?.id) ??
+    readString(envelopeArtifact?.id) ??
+    readString(payload?.artifactId) ??
+    fail('OpenClaw artifact id');
+  const type =
+    readString(payloadArtifact?.type) ??
+    readString(envelopeArtifact?.type) ??
+    readString(payload?.type) ??
+    fail('OpenClaw artifact type');
 
   return {
     artifact: {
       id,
       type,
-      name: readString(artifact?.name),
-      uri: readString(artifact?.uri),
+      name: readString(payloadArtifact?.name) ?? readString(envelopeArtifact?.name),
+      uri: readString(payloadArtifact?.uri) ?? readString(envelopeArtifact?.uri),
     },
     summary: readString(payload?.summary),
   };
@@ -488,8 +521,9 @@ function readBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined;
 }
 
-function requireString(value: string | undefined, label: string): string {
-  if (value) return value;
+function requireNonEmptyString(value: unknown, label: string): string {
+  const normalized = readString(value);
+  if (normalized) return normalized;
   throw new Error(`Missing ${label}`);
 }
 
