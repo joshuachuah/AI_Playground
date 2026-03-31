@@ -155,7 +155,7 @@ export class OpenClawRuntimeTranslator implements RuntimeToVisualTranslator {
             summary: `${event.actor?.name ?? 'Actor'} completed ${toolName ?? 'a tool'}`,
             scene: {
               target: { zone },
-              activity: zone === 'coordination' ? 'idle' : mapToolActivity(zone, toolName),
+              activity: 'idle',
             },
             ui: {
               label: toolName,

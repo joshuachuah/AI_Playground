@@ -76,7 +76,7 @@ test('translates tool completion into a tool completed visual event', () => {
       summary: 'Willy completed read',
       scene: {
         target: { zone: 'files' },
-        activity: 'reading',
+        activity: 'idle',
       },
       ui: {
         label: 'read',
