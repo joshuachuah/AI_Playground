@@ -34,6 +34,10 @@ export interface RuntimeVisualSessionProjection {
   updatedAt?: string;
 }
 
+export function createRuntimeVisualActorKey(sessionId: string, actorId: string): string {
+  return `${sessionId}:${actorId}`;
+}
+
 export interface RuntimeVisualState {
   connectionStatus: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
   runtimeEvents: RuntimeEvent[];
@@ -152,8 +156,15 @@ function deriveActorsById(
 ): Record<string, RuntimeVisualActorProjection> {
   const actor = runtimeEvent.actor;
   if (!actor?.id) return currentActorsById;
+  const actorKey = createRuntimeVisualActorKey(runtimeEvent.sessionId, actor.id);
 
-  const current = currentActorsById[actor.id];
+  if (runtimeEvent.kind === 'actor.removed') {
+    const nextActorsById = { ...currentActorsById };
+    delete nextActorsById[actorKey];
+    return nextActorsById;
+  }
+
+  const current = currentActorsById[actorKey];
   const next: RuntimeVisualActorProjection = {
     id: actor.id,
     name: actor.name,
@@ -182,7 +193,7 @@ function deriveActorsById(
 
   return {
     ...currentActorsById,
-    [actor.id]: next,
+    [actorKey]: next,
   };
 }
 
@@ -193,7 +204,13 @@ function deriveSessionsById(
 ): Record<string, RuntimeVisualSessionProjection> {
   const current = currentSessionsById[runtimeEvent.sessionId];
   const actorIds = new Set(current?.actorIds ?? []);
-  if (runtimeEvent.actor?.id) actorIds.add(runtimeEvent.actor.id);
+  if (runtimeEvent.actor?.id) {
+    if (runtimeEvent.kind === 'actor.removed') {
+      actorIds.delete(runtimeEvent.actor.id);
+    } else {
+      actorIds.add(runtimeEvent.actor.id);
+    }
+  }
 
   const next: RuntimeVisualSessionProjection = {
     id: runtimeEvent.sessionId,

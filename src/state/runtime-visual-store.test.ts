@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { RuntimeEvent } from '../contracts/runtime-events.js';
 import { OpenClawRuntimeTranslator } from '../translators/runtime-to-visual.js';
-import { RuntimeVisualStore } from './runtime-visual-store.js';
+import { createRuntimeVisualActorKey, RuntimeVisualStore } from './runtime-visual-store.js';
 
 test('derives actor and session state from runtime and visual events', () => {
   const store = new RuntimeVisualStore({
@@ -138,7 +138,7 @@ test('derives actor and session state from runtime and visual events', () => {
   store.ingestRuntimeEvent(sessionCompleted);
 
   const snapshot = store.getSnapshot();
-  const actor = snapshot.actorsById['agent-1'];
+  const actor = snapshot.actorsById[createRuntimeVisualActorKey('session-1', 'agent-1')];
   const session = snapshot.sessionsById['session-1'];
 
   assert.deepEqual(actor, {
@@ -199,9 +199,103 @@ test('records actor error state from runtime and visual failures', () => {
 
   store.ingestRuntimeEvent(taskFailed);
 
-  const actor = store.getSnapshot().actorsById['agent-2'];
+  const actor = store.getSnapshot().actorsById[createRuntimeVisualActorKey('session-2', 'agent-2')];
 
   assert.equal(actor.currentActivity, 'error');
   assert.equal(actor.lastError, 'Nick hit an error');
   assert.equal(actor.lastSummary, 'Nick hit an error');
+});
+
+test('keeps actor projections isolated across sessions', () => {
+  const store = new RuntimeVisualStore({
+    translator: new OpenClawRuntimeTranslator(),
+  });
+
+  const firstSessionEvent: RuntimeEvent<'actor.spawned'> = {
+    id: 'evt-session-1-actor',
+    timestamp: '2026-03-31T18:20:00.000Z',
+    sessionId: 'session-1',
+    source: 'openclaw.runtime',
+    kind: 'actor.spawned',
+    actor: {
+      id: 'shared-actor',
+      name: 'Willy',
+    },
+    payload: {
+      status: 'spawned',
+      summary: 'Joined session 1',
+    },
+  };
+
+  const secondSessionEvent: RuntimeEvent<'actor.spawned'> = {
+    id: 'evt-session-2-actor',
+    timestamp: '2026-03-31T18:20:01.000Z',
+    sessionId: 'session-2',
+    source: 'openclaw.runtime',
+    kind: 'actor.spawned',
+    actor: {
+      id: 'shared-actor',
+      name: 'Willy clone',
+    },
+    payload: {
+      status: 'spawned',
+      summary: 'Joined session 2',
+    },
+  };
+
+  store.ingestRuntimeEvent(firstSessionEvent);
+  store.ingestRuntimeEvent(secondSessionEvent);
+
+  const snapshot = store.getSnapshot();
+
+  assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-1', 'shared-actor')].sessionId, 'session-1');
+  assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-1', 'shared-actor')].name, 'Willy');
+  assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-2', 'shared-actor')].sessionId, 'session-2');
+  assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-2', 'shared-actor')].name, 'Willy clone');
+});
+
+test('removes actor projections when actors leave the session', () => {
+  const store = new RuntimeVisualStore({
+    translator: new OpenClawRuntimeTranslator(),
+  });
+
+  const actorSpawned: RuntimeEvent<'actor.spawned'> = {
+    id: 'evt-actor-spawned',
+    timestamp: '2026-03-31T18:30:00.000Z',
+    sessionId: 'session-3',
+    source: 'openclaw.runtime',
+    kind: 'actor.spawned',
+    actor: {
+      id: 'agent-3',
+      name: 'Yuqi',
+    },
+    payload: {
+      status: 'spawned',
+      summary: 'Joined session',
+    },
+  };
+
+  const actorRemoved: RuntimeEvent<'actor.removed'> = {
+    id: 'evt-actor-removed',
+    timestamp: '2026-03-31T18:30:01.000Z',
+    sessionId: 'session-3',
+    source: 'openclaw.runtime',
+    kind: 'actor.removed',
+    actor: {
+      id: 'agent-3',
+      name: 'Yuqi',
+    },
+    payload: {
+      status: 'removed',
+      summary: 'Left session',
+    },
+  };
+
+  store.ingestRuntimeEvent(actorSpawned);
+  store.ingestRuntimeEvent(actorRemoved);
+
+  const snapshot = store.getSnapshot();
+
+  assert.equal(snapshot.actorsById[createRuntimeVisualActorKey('session-3', 'agent-3')], undefined);
+  assert.deepEqual(snapshot.sessionsById['session-3'].actorIds, []);
 });
