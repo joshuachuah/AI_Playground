@@ -32,21 +32,23 @@ export async function mountLocalLiveDashboard(root: HTMLElement): Promise<() => 
 }
 
 function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>): void {
+  const currentSession = readCurrentSession(state);
+  const currentActors = readCurrentActors(state, currentSession);
+
   setText(root, '[data-slot="connection-status"]', state.connectionStatus);
   setText(root, '[data-slot="runtime-count"]', String(state.runtimeEvents.length));
   setText(root, '[data-slot="visual-count"]', String(state.visualEvents.length));
   setText(root, '[data-slot="error-count"]', String(countErrors(state.runtimeEvents)));
   setText(root, '[data-slot="warning-count"]', String(countWarnings(state.runtimeEvents)));
-  setText(root, '[data-slot="actor-count"]', String(Object.keys(state.actorsById).length));
+  setText(root, '[data-slot="actor-count"]', String(currentActors.length));
   setText(root, '[data-slot="last-error"]', state.lastError ?? 'none');
 
   const latestRuntimeEvent = state.runtimeEvents.at(-1);
   const latestVisualEvent = state.visualEvents.at(-1);
-  const currentSession = readCurrentSession(state);
 
   setHtml(root, '[data-slot="timeline"]', renderTimeline(state.runtimeEvents));
   setHtml(root, '[data-slot="session-summary"]', renderSessionSummary(currentSession));
-  setHtml(root, '[data-slot="actor-cards"]', renderActorCards(state.actorsById));
+  setHtml(root, '[data-slot="actor-cards"]', renderActorCards(currentActors));
   setText(root, '[data-slot="latest-runtime-kind"]', latestRuntimeEvent?.kind ?? 'none');
   setText(root, '[data-slot="latest-runtime-source"]', latestRuntimeEvent?.source ?? 'none');
   setText(root, '[data-slot="latest-runtime-actor"]', latestRuntimeEvent?.actor?.name ?? 'none');
@@ -182,9 +184,7 @@ export function renderSessionSummary(session: RuntimeVisualSessionProjection | u
   `;
 }
 
-export function renderActorCards(actorsById: Record<string, RuntimeVisualActorProjection>): string {
-  const actors = Object.values(actorsById).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-
+export function renderActorCards(actors: readonly RuntimeVisualActorProjection[]): string {
   if (actors.length === 0) {
     return '<p class="empty">Waiting for actor state…</p>';
   }
@@ -268,6 +268,17 @@ function readCurrentSession(state: Readonly<RuntimeVisualState>): RuntimeVisualS
   return Object.values(state.sessionsById)
     .sort((left, right) => (right.updatedAt ?? '').localeCompare(left.updatedAt ?? ''))
     .at(0);
+}
+
+export function readCurrentActors(
+  state: Readonly<RuntimeVisualState>,
+  session: RuntimeVisualSessionProjection | undefined,
+): RuntimeVisualActorProjection[] {
+  const actors = Object.values(state.actorsById);
+
+  return actors
+    .filter((actor) => !session || actor.sessionId === session.id)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 function setText(root: HTMLElement, selector: string, value: string): void {
