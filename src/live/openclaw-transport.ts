@@ -46,6 +46,7 @@ export function parseOpenClawEventEnvelope(payload: string): OpenClawEventEnvelo
 export class OpenClawSseRuntimeTransport implements RuntimeEventTransport {
   private source: EventSourceLike | null = null;
   private listener: RuntimeEventStreamListener | null = null;
+  private hasErrored = false;
 
   constructor(private readonly config: OpenClawSseRuntimeTransportConfig) {}
 
@@ -56,16 +57,20 @@ export class OpenClawSseRuntimeTransport implements RuntimeEventTransport {
     }
 
     this.listener = listener;
+    this.hasErrored = false;
     listener.onStatusChange?.('connecting');
 
     const source = this.config.createEventSource(this.config.url);
     this.source = source;
 
     source.onopen = () => {
+      if (this.source !== source || this.listener !== listener) return;
       listener.onStatusChange?.('connected');
     };
 
     source.onmessage = (event) => {
+      if (this.source !== source || this.listener !== listener) return;
+
       try {
         const envelope = parseOpenClawEventEnvelope(event.data);
         emitNormalizedOpenClawEvents(
@@ -75,11 +80,15 @@ export class OpenClawSseRuntimeTransport implements RuntimeEventTransport {
           this.config.defaultNormalizeContext,
         );
       } catch (error) {
+        this.hasErrored = true;
+        listener.onStatusChange?.('error');
         listener.onError?.(error);
       }
     };
 
     source.onerror = (error) => {
+      if (this.source !== source || this.listener !== listener) return;
+      this.hasErrored = true;
       listener.onStatusChange?.('error');
       listener.onError?.(error);
     };
@@ -88,12 +97,16 @@ export class OpenClawSseRuntimeTransport implements RuntimeEventTransport {
   async disconnect(): Promise<void> {
     if (!this.source) {
       this.listener = null;
+      this.hasErrored = false;
       return;
     }
 
     this.closeSource();
-    this.listener?.onStatusChange?.('disconnected');
+    if (!this.hasErrored) {
+      this.listener?.onStatusChange?.('disconnected');
+    }
     this.listener = null;
+    this.hasErrored = false;
   }
 
   private closeSource(): void {
@@ -146,6 +159,8 @@ export class OpenClawWebSocketRuntimeTransport implements RuntimeEventTransport 
           this.config.defaultNormalizeContext,
         );
       } catch (error) {
+        this.hasErrored = true;
+        listener.onStatusChange?.('error');
         listener.onError?.(error);
       }
     };
@@ -265,8 +280,14 @@ class InMemoryOpenClawRuntimeTransport implements RuntimeEventTransport {
     listener.onStatusChange?.('connecting');
     listener.onStatusChange?.('connected');
 
-    for (const event of this.events) {
-      emitNormalizedOpenClawEvents(event, this.adapter, listener, this.defaultNormalizeContext);
+    try {
+      for (const event of this.events) {
+        emitNormalizedOpenClawEvents(event, this.adapter, listener, this.defaultNormalizeContext);
+      }
+    } catch (error) {
+      this.connected = false;
+      listener.onStatusChange?.('error');
+      listener.onError?.(error);
     }
   }
 
@@ -293,7 +314,9 @@ function emitNormalizedOpenClawEvents(
     receivedAt: defaultNormalizeContext?.receivedAt ?? new Date().toISOString(),
   });
 
-  if (!normalized) return;
+  if (!normalized) {
+    throw new Error('Unsupported or invalid OpenClaw runtime event');
+  }
 
   const events = Array.isArray(normalized) ? normalized : [normalized];
   for (const runtimeEvent of events) {

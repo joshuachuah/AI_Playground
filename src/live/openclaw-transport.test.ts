@@ -127,6 +127,47 @@ test('SSE transport emits normalized runtime events from raw OpenClaw messages',
   assert.equal((events[0] as { kind: string }).kind, 'warning');
 });
 
+test('SSE transport transitions to error when raw OpenClaw messages are invalid', async () => {
+  const source = {
+    onopen: null as (() => void) | null,
+    onmessage: null as ((event: { data: string }) => void) | null,
+    onerror: null as ((error: unknown) => void) | null,
+    close() {},
+  };
+
+  const transport = new OpenClawSseRuntimeTransport({
+    url: 'http://localhost:3000/runtime',
+    adapter: createDefaultOpenClawAdapter(),
+    createEventSource: () => source,
+  });
+
+  const statuses: string[] = [];
+  const errors: unknown[] = [];
+
+  await transport.connect({
+    onStatusChange(status) {
+      statuses.push(status);
+    },
+    onRuntimeEvent() {
+      assert.fail('expected invalid SSE message to produce no runtime event');
+    },
+    onError(error) {
+      errors.push(error);
+    },
+  });
+
+  source.onopen?.();
+  source.onmessage?.({
+    data: JSON.stringify({
+      event: {},
+    }),
+  });
+
+  assert.deepEqual(statuses, ['connecting', 'connected', 'error']);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /Unsupported or invalid OpenClaw runtime event/);
+});
+
 test('WebSocket transport emits normalized runtime events from raw OpenClaw messages', async () => {
   const socket = {
     onopen: null as (() => void) | null,
@@ -180,4 +221,82 @@ test('WebSocket transport emits normalized runtime events from raw OpenClaw mess
   assert.deepEqual(statuses, ['connecting', 'connected', 'disconnected']);
   assert.equal(events.length, 1);
   assert.equal((events[0] as { kind: string }).kind, 'tool.started');
+});
+
+test('WebSocket transport transitions to error when normalization fails', async () => {
+  const socket = {
+    onopen: null as (() => void) | null,
+    onmessage: null as ((event: { data: string }) => void) | null,
+    onerror: null as ((error: unknown) => void) | null,
+    onclose: null as ((event: { code?: number; reason?: string; wasClean?: boolean }) => void) | null,
+    close() {
+      this.onclose?.({ wasClean: true });
+    },
+  };
+
+  const transport = new OpenClawWebSocketRuntimeTransport({
+    url: 'ws://localhost:3000/runtime',
+    adapter: createDefaultOpenClawAdapter(),
+    createWebSocket: () => socket,
+  });
+
+  const statuses: string[] = [];
+  const errors: unknown[] = [];
+
+  await transport.connect({
+    onStatusChange(status) {
+      statuses.push(status);
+    },
+    onRuntimeEvent() {
+      assert.fail('expected invalid WebSocket message to produce no runtime event');
+    },
+    onError(error) {
+      errors.push(error);
+    },
+  });
+
+  socket.onopen?.();
+  socket.onmessage?.({
+    data: JSON.stringify({
+      event: {},
+    }),
+  });
+
+  assert.deepEqual(statuses, ['connecting', 'connected', 'error']);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /Unsupported or invalid OpenClaw runtime event/);
+});
+
+test('in-memory transport reports an error when a raw OpenClaw event is unsupported', async () => {
+  const transport = createInMemoryOpenClawRuntimeTransport(
+    [
+      {
+        id: 'evt-unsupported',
+        timestamp: '2026-03-31T14:03:00.000Z',
+        sessionId: 'session-1',
+        kind: 'custom.unsupported',
+        payload: {},
+      },
+    ],
+    createDefaultOpenClawAdapter(),
+  );
+
+  const statuses: string[] = [];
+  const errors: unknown[] = [];
+
+  await transport.connect({
+    onStatusChange(status) {
+      statuses.push(status);
+    },
+    onRuntimeEvent() {
+      assert.fail('expected unsupported in-memory event to produce no runtime event');
+    },
+    onError(error) {
+      errors.push(error);
+    },
+  });
+
+  assert.deepEqual(statuses, ['connecting', 'connected', 'error']);
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /Unsupported or invalid OpenClaw runtime event/);
 });
