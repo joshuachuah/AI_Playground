@@ -1,5 +1,4 @@
 import { bootLiveClientApp } from '../app/boot.js';
-import { LocalRuntimeEventSourceTransport, createIntervalRuntimeEventSource } from '../live/local-runtime-event-source.js';
 import type { RuntimeEvent } from '../contracts/runtime-events.js';
 import type { VisualEvent } from '../contracts/visual-events.js';
 import type {
@@ -7,16 +6,26 @@ import type {
   RuntimeVisualSessionProjection,
   RuntimeVisualState,
 } from '../state/runtime-visual-store.js';
-import { sampleRuntimeEvents } from '../dev/sample-runtime-events.js';
+import { createBrowserOpenClawDevTransport, describeOpenClawDevConnection } from '../dev/openclaw-dev-transport.js';
+import { readOpenClawDevConnectionConfig, type OpenClawDevConnectionConfig } from '../dev/openclaw-dev-config.js';
 
 const TIMELINE_LIMIT = 12;
 
-export async function mountLocalLiveDashboard(root: HTMLElement): Promise<() => Promise<void>> {
+declare global {
+  interface Window {
+    __AI_PLAYGROUND_OPENCLAW__?: OpenClawDevConnectionConfig;
+  }
+}
+
+export async function mountLiveDashboard(
+  root: HTMLElement,
+  config: OpenClawDevConnectionConfig = readBrowserOpenClawDevConnectionConfig(),
+): Promise<() => Promise<void>> {
   root.innerHTML = renderShell();
 
-  const transport = new LocalRuntimeEventSourceTransport({
-    source: createIntervalRuntimeEventSource(sampleRuntimeEvents, { intervalMs: 500 }),
-  });
+  setText(root, '[data-slot="connection-source"]', describeOpenClawDevConnection(config));
+
+  const transport = createBrowserOpenClawDevTransport(config);
 
   const app = bootLiveClientApp({ transport });
   const unsubscribe = app.store.subscribe((state) => {
@@ -29,6 +38,10 @@ export async function mountLocalLiveDashboard(root: HTMLElement): Promise<() => 
     unsubscribe();
     await app.stop();
   };
+}
+
+export async function mountLocalLiveDashboard(root: HTMLElement): Promise<() => Promise<void>> {
+  return mountLiveDashboard(root);
 }
 
 function renderState(root: HTMLElement, state: Readonly<RuntimeVisualState>): void {
@@ -85,6 +98,7 @@ function renderShell(): string {
           <p class="eyebrow">AI_Playground · local live dashboard</p>
           <h1>Runtime observability v1 slice</h1>
           <p class="subtle">Minimal browser UI over the existing boot → transport → store path.</p>
+          <p class="subtle" data-slot="connection-source">fixture sample stream</p>
         </div>
         <div class="status-card">
           <span class="badge" data-slot="connection-badge" data-status="idle"></span>
@@ -312,6 +326,16 @@ if (typeof document !== 'undefined') {
   const root = document.querySelector<HTMLElement>('#app');
 
   if (root) {
-    void mountLocalLiveDashboard(root);
+    void mountLiveDashboard(root);
   }
+}
+
+function readBrowserOpenClawDevConnectionConfig(): OpenClawDevConnectionConfig {
+  const { config, warnings } = readOpenClawDevConnectionConfig(window.__AI_PLAYGROUND_OPENCLAW__);
+
+  for (const warning of warnings) {
+    console.warn(`[live-dashboard] ${warning}`);
+  }
+
+  return config;
 }

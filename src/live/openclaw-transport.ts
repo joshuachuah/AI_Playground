@@ -303,7 +303,7 @@ class InMemoryOpenClawRuntimeTransport implements RuntimeEventTransport {
   }
 }
 
-function emitNormalizedOpenClawEvents(
+export function emitNormalizedOpenClawEvents(
   event: OpenClawRawEventEnvelope,
   adapter: OpenClawAdapter,
   listener: RuntimeEventStreamListener,

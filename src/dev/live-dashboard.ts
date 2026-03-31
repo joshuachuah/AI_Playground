@@ -1,11 +1,14 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readOpenClawDevConnectionConfigFromEnv } from './openclaw-dev-config.js';
+import { describeOpenClawDevConnection } from './openclaw-dev-transport.js';
 
 const DEFAULT_PORT = 4173;
 const BUILD_ROOT = new URL('../../.build/', import.meta.url);
 
 export async function runLocalLiveDashboardServer(port = DEFAULT_PORT): Promise<void> {
+  const { config, warnings } = readOpenClawDevConnectionConfigFromEnv(process.env);
   const html = renderHtml();
 
   const server = createServer(async (request, response) => {
@@ -42,10 +45,17 @@ export async function runLocalLiveDashboardServer(port = DEFAULT_PORT): Promise<
   });
 
   console.log(`[live-dashboard] listening on http://localhost:${port}`);
+  console.log(`[live-dashboard] source: ${describeOpenClawDevConnection(config)}`);
+  for (const warning of warnings) {
+    console.warn(`[live-dashboard] ${warning}`);
+  }
   console.log('[live-dashboard] press Ctrl+C to stop');
 }
 
 function renderHtml(): string {
+  const { config } = readOpenClawDevConnectionConfigFromEnv(process.env);
+  const serializedConfig = JSON.stringify(config).replaceAll('</script>', '<\\/script>');
+
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -177,6 +187,9 @@ function renderHtml(): string {
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      window.__AI_PLAYGROUND_OPENCLAW__ = ${serializedConfig};
+    </script>
     <script type="module" src="/assets/ui/live-dashboard.js"></script>
   </body>
 </html>`;

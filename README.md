@@ -179,6 +179,22 @@ await shell.connect();
 
 For local developer-oriented previews, see `src/dev/live-shell.ts` and `src/dev/live-inspector.ts`.
 
+### OpenClaw dev source selection
+
+The local dashboard and inspector now support three source modes:
+
+- `fixture`: built-in sample runtime events
+- `sse`: a real OpenClaw SSE endpoint
+- `ws`: a real OpenClaw WebSocket endpoint
+
+Use these environment variables to choose the source:
+
+- `OPENCLAW_TRANSPORT=fixture|sse|ws`
+- `OPENCLAW_SSE_URL=http://...`
+- `OPENCLAW_WS_URL=ws://...`
+
+If no transport is configured, the local tools default to `fixture`.
+
 ### Local live dashboard
 
 Run the first local browser UI slice:
@@ -196,7 +212,17 @@ Open the printed URL in your browser to see:
 - latest-event inspector
 - last error state
 
-The dashboard currently uses the same local fixture-backed runtime stream as the terminal inspector, which keeps the UI slice narrow while exercising the real transport → store → render path.
+Run it against a real OpenClaw SSE endpoint:
+
+```bash
+OPENCLAW_TRANSPORT=sse OPENCLAW_SSE_URL=http://localhost:4318/runtime npm run dev:dashboard
+```
+
+Run it against a real OpenClaw WebSocket endpoint:
+
+```bash
+OPENCLAW_TRANSPORT=ws OPENCLAW_WS_URL=ws://localhost:4318/runtime npm run dev:dashboard
+```
 
 ### Local live inspector
 
@@ -211,6 +237,25 @@ That flow prints:
 - runtime/visual event counters
 - a timeline of newly received runtime events
 - a latest-event inspector snapshot
+
+Run it against a real OpenClaw SSE endpoint:
+
+```bash
+OPENCLAW_TRANSPORT=sse OPENCLAW_SSE_URL=http://localhost:4318/runtime npm run dev:inspect
+```
+
+The inspector keeps the fixture mode auto-finishing for previews, but for real SSE or WebSocket streams it stays attached until the stream disconnects or you stop it with `Ctrl+C`.
+
+## Real local end-to-end flow
+
+The practical Phase 1 local loop is now:
+
+1. Start or expose a real OpenClaw runtime stream over SSE or WebSocket.
+2. Point AI_Playground at it with `OPENCLAW_TRANSPORT` plus `OPENCLAW_SSE_URL` or `OPENCLAW_WS_URL`.
+3. Run `npm run dev:inspect` to verify normalization, translation, and projection behavior in the terminal.
+4. Run `npm run dev:dashboard` to inspect the same live pipeline in the browser.
+
+This keeps the transport boundary OpenClaw-specific while preserving the repo-owned `RuntimeEvent` and `VisualEvent` contracts inside the app.
 
 ## More detail
 
